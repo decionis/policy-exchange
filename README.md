@@ -64,8 +64,29 @@ agent gated by the policy pack the visitor just edited. An approved action
 lands; a refused one leaves a verdict and no commit. Publicly, so anyone can
 read both.
 
-That part is being built. What works today is the catalogue below: fork a
-pack, change it, and CI checks the shape on your pull request.
+### Run it
+
+```bash
+cd app
+npm install
+npm run dev
+```
+
+Six verticals, real verdicts, a local dataset a refusal visibly protects, and
+a `npx @decionis/verify` command for every decision. The app depends on
+**nothing of ours you cannot read** — two `fetch` calls to public endpoints
+and React.
+
+The dev server proxies the API, and that is not a convenience: Decionis
+allowlists the decionis.com origins for browser calls and refuses the rest, so
+a fork calling the API directly would fail on the first button. The proxy
+makes the call server-side, where CORS does not apply. Deploying a fork
+somewhere public needs the same shape — your own proxy, or your origin
+allowlisted.
+
+The branch-per-session bot is still being built. What works today is the app
+above and the catalogue below: fork a pack, change it, and CI checks the shape
+on your pull request.
 
 ## Contributing
 
