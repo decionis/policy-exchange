@@ -1,0 +1,119 @@
+# The sandbox bot.
+#
+# Receives {action, sessionId, policy, context} from a repository_dispatch,
+# gates it through Decionis using the POLICY THE VISITOR AUTHORED, and — only
+# on APPROVE — performs the action on that session's own branch. Every run
+# appends an event the app reads straight from this public repository, so the
+# read path needs no credential and only the dispatch that starts a run does.
+#
+# The whole security posture is that the payload is hostile until proven
+# otherwise:
+#
+#   * `sessionId` becomes a branch name, so it is matched against an allowlist
+#     pattern and REFUSED if it does not fit — never sanitised. bot/session.mjs
+#     holds that check and its tests cover ../main, "main", shell metacharacters
+#     and newlines.
+#   * Everything happens under `sandbox/<sessionId>`. There is no code path to
+#     main, and MERGE means merging onto the session's own branch.
+#   * `contents: write` is the only permission, scoped to this repository. No
+#     package, deployment, or secret access.
+#   * The visitor's policy is written to a file and evaluated. It is never
+#     executed and never interpolated into a shell command.
+#   * A session is capped, counted from its own committed event log rather
+#     than from anything the caller sends.
+name: Sandbox bot
+
+on:
+  repository_dispatch:
+    types: [sandbox-action]
+
+# Deliberately narrow. The bot writes branches in this repository and does
+# nothing else.
+permissions:
+  contents: write
+
+# One run at a time per session. Two dispatches racing on the same branch
+# would interleave commits and produce an event log that lies about order.
+concurrency:
+  group: sandbox-bot-${{ github.event.client_payload.sessionId }}
+  cancel-in-progress: false
+
+jobs:
+  act:
+    name: ${{ github.event.client_payload.action }} · ${{ github.event.client_payload.sessionId }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Validates the payload BEFORE anything touches git. A bad session id
+      # fails here, having created nothing.
+      - name: Validate the dispatch
+        id: dispatch
+        env:
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+        run: node bot/validate.mjs
+
+      - name: Check out or create the session branch
+        env:
+          BRANCH: ${{ steps.dispatch.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git config user.name "decionis-sandbox-bot"
+          git config user.email "sandbox-bot@users.noreply.github.com"
+          # "$BRANCH" is quoted and came from the validated allowlist, so it
+          # cannot carry an option or a path traversal.
+          if git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1; then
+            git fetch origin "$BRANCH"
+            git checkout -B "$BRANCH" "origin/$BRANCH"
+          else
+            git checkout -B "$BRANCH"
+          fi
+
+      - name: Gate the action through Decionis
+        id: gate
+        env:
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+        run: node bot/gate.mjs
+
+      - name: Execute, only if approved
+        if: steps.gate.outputs.verdict == 'APPROVE'
+        env:
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          VERDICT: ${{ steps.gate.outputs.verdict }}
+          MATCHED_RULE: ${{ steps.gate.outputs.matched_rule }}
+        run: node bot/run.mjs
+
+      # Runs on refusal too. A refused action still produces an event — the
+      # absence of a change next to a recorded refusal is the demonstration.
+      - name: Record the outcome
+        if: always()
+        env:
+          PAYLOAD: ${{ toJSON(github.event.client_payload) }}
+          VERDICT: ${{ steps.gate.outputs.verdict || 'ERROR' }}
+          MATCHED_RULE: ${{ steps.gate.outputs.matched_rule }}
+          REASON: ${{ steps.gate.outputs.reason }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: node bot/record.mjs
+
+      - name: Push the session branch
+        if: always()
+        env:
+          BRANCH: ${{ steps.dispatch.outputs.branch }}
+        run: |
+          set -euo pipefail
+          if [ -n "$(git status --porcelain)" ]; then
+            git add state/
+            git commit -m "sandbox: ${{ github.event.client_payload.action }} (${{ steps.gate.outputs.verdict || 'ERROR' }})"
+            git push origin "HEAD:$BRANCH"
+          else
+            echo "Nothing changed — not pushing an empty commit."
+          fi
