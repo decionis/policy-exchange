@@ -1,0 +1,46 @@
+# Workday Offboarding Access Guard
+#
+# When a termination event lands, prove access and payroll were actually revoked — not just ticketed.
+#
+# Audience:  HR ops and IT security closing the offboarding loop
+# Platform:  workday
+# Vertical:  hr
+# Standards: SOC 2 CC6.2, ISO 27001 A.6.5, Access review evidence
+# Install:   7 min — Workday design-partner program
+# Rendered:  https://decionis.com/policy-exchange/workday-offboarding-access-guard
+#
+# Rules in this pack:
+#   - Access revocation confirmation: Restrains closure of the offboarding until every entitlement is confirmed revoked.
+#   - Payroll stop confirmation: Blocks the next payroll cycle from paying a terminated worker.
+#   - Privileged-role sweep: Escalates when the leaver held a privileged role that has no revocation record.
+# Fork: this is the hr pack's Offboarding Guard, expressed against the
+# termination event.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: workday-offboarding-access-guard
+  surface: workday
+  workflow_key: offboarding_completion
+  standards: [SOC2-CC6.2, ISO27001-A.6.5]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: access_revocation_confirmation
+    when: "event == 'worker.terminated'"
+    decision: |
+      RESTRAIN IF entitlements.revoked_count < entitlements.total_count
+      ALLOW OTHERWISE
+    reason_code: entitlements_still_active
+  - name: payroll_stop_confirmation
+    when: "action == 'payroll.pay_worker'"
+    decision: |
+      BLOCK IF worker.status == 'terminated'
+      ALLOW OTHERWISE
+    reason_code: payment_to_terminated_worker
+  - name: privileged_role_sweep
+    when: "event == 'worker.terminated'"
+    decision: |
+      ESCALATE IF worker.held_privileged_roles == true AND revocation_evidence == null
+      ALLOW OTHERWISE
+    reason_code: privileged_revocation_unproven

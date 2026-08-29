@@ -1,0 +1,47 @@
+# Adobe Commerce Price-Drift Circuit Breaker
+#
+# Catches a pricing feed or AI engine publishing a price far off the last-known-good value before shoppers see it.
+#
+# Audience:  Merchandising and pricing teams on Adobe Commerce
+# Platform:  adobe_commerce
+# Vertical:  commerce
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.34, Pricing change evidence
+# Install:   6 min — See the Adobe Commerce install guide
+# Rendered:  https://decionis.com/policy-exchange/adobe-commerce-price-drift-breaker
+#
+# Rules in this pack:
+#   - Drift ceiling: Blocks a price update that moves more than the allowed percentage from the last approved price.
+#   - Below-cost block: Blocks any published price at or below the item's cost basis.
+#   - Bulk-update restraint: Restrains a feed run that would reprice more SKUs than the batch ceiling allows.
+# Fork: tune drift_ceiling_pct and batch_ceiling to your catalog size.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: adobe-commerce-price-drift-breaker
+  surface: adobe_commerce
+  workflow_key: price_publish
+  standards: [SOC2-CC8.1, ISO27001-A.8.34]
+defaults:
+  mode: shadow
+  emit_dossier: true
+drift_ceiling_pct: 25
+batch_ceiling: 500
+rules:
+  - name: drift_ceiling
+    when: "action == 'price.publish'"
+    decision: |
+      BLOCK IF abs(new_price - last_approved_price) / last_approved_price > drift_ceiling_pct / 100
+      ALLOW OTHERWISE
+    reason_code: price_drift_over_ceiling
+  - name: below_cost_block
+    when: "action == 'price.publish'"
+    decision: |
+      BLOCK IF new_price <= item.cost_basis
+      ALLOW OTHERWISE
+    reason_code: price_at_or_below_cost
+  - name: bulk_update_restraint
+    when: "action == 'price.bulk_publish'"
+    decision: |
+      RESTRAIN IF affected_sku_count > batch_ceiling
+      ALLOW OTHERWISE
+    reason_code: bulk_repricing_over_batch_ceiling

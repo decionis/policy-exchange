@@ -1,0 +1,46 @@
+# Zapier Risk-Score Change Pause
+#
+# Pauses a Zap the moment a customer's risk score crosses the line, instead of letting the automation keep firing.
+#
+# Audience:  Risk and ops teams whose Zaps act on customer records
+# Platform:  zapier
+# Vertical:  cross_vertical
+# Standards: SOC 2 CC7.2, ISO 27001 A.5.7, Risk decision evidence
+# Install:   4 min — Add the Zapier action
+# Rendered:  https://decionis.com/policy-exchange/zapier-risk-score-change-pause
+#
+# Rules in this pack:
+#   - Elevated-risk escalation: Escalates an action on a customer whose risk score crossed the elevated band.
+#   - Restricted-customer block: Blocks any automated action on a customer flagged restricted.
+#   - Score-jump restraint: Restrains the workflow when a risk score moves more than the allowed delta in one step.
+# Fork: thresholds mirror the "Regulated customer actions" template.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: zapier-risk-score-change-pause
+  surface: zapier
+  workflow_key: regulated_customer_action
+  standards: [SOC2-CC7.2, ISO27001-A.5.7]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: elevated_risk_escalation
+    when: "action == 'customer.act'"
+    decision: |
+      ALLOW IF risk_score < 60
+      ESCALATE IF risk_score < 85
+      BLOCK OTHERWISE
+    reason_code: risk_score_over_threshold
+  - name: restricted_customer_block
+    when: "action == 'customer.act'"
+    decision: |
+      BLOCK IF restricted == true
+      ALLOW OTHERWISE
+    reason_code: restricted_customer
+  - name: score_jump_restraint
+    when: "event == 'risk_score.changed'"
+    decision: |
+      RESTRAIN IF abs(risk_score - previous_risk_score) > 20
+      ALLOW OTHERWISE
+    reason_code: risk_score_jump_needs_review

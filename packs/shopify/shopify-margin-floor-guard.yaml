@@ -1,0 +1,48 @@
+# Shopify Margin Floor Guard
+#
+# Never discount below margin. Holds the checkout before the payment token is issued when the cart would breach the floor.
+#
+# Audience:  Ecommerce and finance ops running promotions on Shopify
+# Platform:  shopify
+# Vertical:  commerce
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.34, Checkout evidence trail
+# Install:   5 min — Install from the Shopify App Store
+# Rendered:  https://decionis.com/policy-exchange/shopify-margin-floor-guard
+#
+# Rules in this pack:
+#   - Margin floor: Blocks a checkout whose net margin falls below the encoded floor, before the token is issued.
+#   - Stacked-discount ceiling: Blocks a cart whose combined discount exceeds the authorized ceiling.
+#   - Agent price-override restraint: Restrains a price override written by a pricing engine or agent rather than a named merchandiser.
+# Fork: replace margin_floor_pct with your own cost basis and floor, and run
+# in shadow mode until the would-have-blocked list looks right.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: shopify-margin-floor-guard
+  surface: shopify
+  workflow_key: checkout_margin_guard
+  standards: [SOC2-CC8.1, ISO27001-A.8.34]
+defaults:
+  mode: shadow
+  emit_dossier: true
+margin_floor_pct: 15
+rules:
+  - name: margin_floor
+    when: "action == 'checkout.commit'"
+    decision: |
+      BLOCK IF order.net_margin_pct < margin_floor_pct
+      ALLOW OTHERWISE
+    reason_code: below_margin_floor
+  - name: stacked_discount_ceiling
+    when: "action == 'checkout.apply_discount'"
+    decision: |
+      BLOCK IF combined_discount_pct >= 50
+      ESCALATE IF discounts.count > 1
+      ALLOW OTHERWISE
+    reason_code: stacked_discount_over_ceiling
+  - name: agent_price_override_restraint
+    when: "action == 'price.override'"
+    decision: |
+      RESTRAIN IF actor.type in ['automation', 'agent']
+      ALLOW OTHERWISE
+    reason_code: price_override_by_non_human

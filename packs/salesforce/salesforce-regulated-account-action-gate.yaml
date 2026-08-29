@@ -1,0 +1,46 @@
+# Salesforce Regulated-Account Action Gate
+#
+# Holds account changes on regulated or restricted customers until the right reviewer signs the record.
+#
+# Audience:  Compliance and service ops handling regulated customers in Salesforce
+# Platform:  salesforce
+# Vertical:  fintech
+# Standards: SOC 2 CC6.1, ISO 27001 A.5.34, Regulated action evidence
+# Install:   6 min — See the Salesforce install guide
+# Rendered:  https://decionis.com/policy-exchange/salesforce-regulated-account-action-gate
+#
+# Rules in this pack:
+#   - Restricted-customer block: Blocks any action on a customer flagged restricted.
+#   - Elevated-risk escalation: Escalates actions on accounts whose risk score is in the elevated band.
+#   - Human-approval requirement: Escalates whenever the record itself carries a requires-human-approval flag, no matter the score.
+# Fork: thresholds mirror the "Regulated customer actions" template.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: salesforce-regulated-account-action-gate
+  surface: salesforce
+  workflow_key: regulated_customer_action
+  standards: [SOC2-CC6.1, ISO27001-A.5.34]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: restricted_customer_block
+    when: "action == 'account.update'"
+    decision: |
+      BLOCK IF restricted == true
+      ALLOW OTHERWISE
+    reason_code: restricted_customer
+  - name: elevated_risk_escalation
+    when: "action == 'account.update'"
+    decision: |
+      ALLOW IF risk_score < 60
+      ESCALATE IF risk_score < 85
+      BLOCK OTHERWISE
+    reason_code: risk_score_over_threshold
+  - name: human_approval_requirement
+    when: "action == 'account.update'"
+    decision: |
+      ESCALATE IF requires_human_approval == true
+      ALLOW OTHERWISE
+    reason_code: record_requires_human_approval

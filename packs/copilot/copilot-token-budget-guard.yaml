@@ -1,0 +1,46 @@
+# Copilot Token-Budget Guard
+#
+# Reserves projected model spend before the prompt is forwarded and restrains runs that would blow the project wallet.
+#
+# Audience:  Agency and platform teams paying for agent runs per client or per project
+# Platform:  copilot
+# Vertical:  ai_agency
+# Standards: SOC 2 CC7.2, ISO 27001 A.8.9, Spend evidence
+# Install:   6 min — Wire the agent gateway hook
+# Rendered:  https://decionis.com/policy-exchange/copilot-token-budget-guard
+#
+# Rules in this pack:
+#   - Project wallet ceiling: Restrains an agent run that would exceed the allocated project token wallet.
+#   - Per-task reservation: Escalates a task whose projected cost exceeds the per-task cap before the prompt is forwarded.
+#   - Unreconciled-run guard: Restrains a new run while a prior reservation for the same project is still unreconciled.
+# Fork: this is the ai_agency "Token Budgeting" gate, expressed against the
+# agent gateway's pre-prompt reservation. Set your own caps.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: copilot-token-budget-guard
+  surface: copilot
+  standards: [SOC2-CC7.2, ISO27001-A.8.9]
+defaults:
+  mode: shadow
+  emit_dossier: true
+  fail_closed: true
+rules:
+  - name: project_wallet_ceiling
+    when: "task.projected_tokens != null"
+    decision: |
+      RESTRAIN IF wallet.consumed_tokens + task.projected_tokens > wallet.allocated_tokens
+      ALLOW OTHERWISE
+    reason_code: project_token_wallet_exhausted
+  - name: per_task_reservation
+    when: "task.projected_cost_usd != null"
+    decision: |
+      ESCALATE IF task.projected_cost_usd > 25
+      ALLOW OTHERWISE
+    reason_code: task_cost_over_cap
+  - name: unreconciled_run_guard
+    when: "always"
+    decision: |
+      RESTRAIN IF wallet.open_reservations > 0
+      ALLOW OTHERWISE
+    reason_code: prior_reservation_unreconciled

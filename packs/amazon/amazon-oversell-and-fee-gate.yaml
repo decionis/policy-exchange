@@ -1,0 +1,46 @@
+# Amazon Oversell & Fee Gate
+#
+# Blocks fulfilling an order for stock oversold across channels, and checks referral plus fulfillment fees against the margin floor.
+#
+# Audience:  Amazon sellers running multi-channel inventory
+# Platform:  amazon
+# Vertical:  commerce
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.34, Fulfillment evidence trail
+# Install:   6 min — See the Amazon install guide
+# Rendered:  https://decionis.com/policy-exchange/amazon-oversell-and-fee-gate
+#
+# Rules in this pack:
+#   - Over-selling gate: Blocks fulfilling an order that would ship more units than the system of record holds.
+#   - Fee-adjusted margin floor: Blocks an order whose margin, after referral and fulfillment fees, falls under the floor.
+#   - Cross-channel reservation restraint: Restrains a fulfillment when the same units are already reserved on another channel.
+# Fork: set your own fee assumptions and floor per category.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: amazon-oversell-and-fee-gate
+  surface: amazon
+  workflow_key: order_fulfillment
+  standards: [SOC2-CC8.1, ISO27001-A.8.34]
+defaults:
+  mode: shadow
+  emit_dossier: true
+margin_floor_pct: 8
+rules:
+  - name: over_selling_gate
+    when: "action == 'order.fulfill'"
+    decision: |
+      BLOCK IF units_ordered > units_available
+      ALLOW OTHERWISE
+    reason_code: oversold_inventory
+  - name: fee_adjusted_margin_floor
+    when: "action == 'order.fulfill'"
+    decision: |
+      BLOCK IF (order.total - order.cost_basis - fees.referral - fees.fulfillment) / order.total < margin_floor_pct / 100
+      ALLOW OTHERWISE
+    reason_code: fee_adjusted_margin_below_floor
+  - name: cross_channel_reservation_restraint
+    when: "action == 'order.fulfill'"
+    decision: |
+      RESTRAIN IF inventory.reserved_on_other_channel == true
+      ALLOW OTHERWISE
+    reason_code: units_reserved_elsewhere

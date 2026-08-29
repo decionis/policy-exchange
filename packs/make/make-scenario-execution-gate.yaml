@@ -1,0 +1,47 @@
+# Make Scenario Execution Gate
+#
+# Evaluate any Make scenario before its protected module runs, using the HTTP V4 request recipe and the bearer key in Make's keychain.
+#
+# Audience:  Ops teams building scenarios in Make that touch money or customer records
+# Platform:  make
+# Vertical:  saas_ops
+# Standards: SOC 2 CC8.1, ISO 27001 A.5.15, Scenario evidence
+# Install:   6 min — Copy the Make HTTP recipe
+# Rendered:  https://decionis.com/policy-exchange/make-scenario-execution-gate
+#
+# Rules in this pack:
+#   - Protected-module gate: Escalates when a protected module would run above the encoded value threshold.
+#   - Idempotency requirement: Restrains a scenario run that arrives without a stable idempotency key.
+#   - Entitlement check: Blocks a scenario acting on a record the connected account is not entitled to.
+# Fork: paste the HTTP V4 request ahead of the protected module and map the
+# response's verdict + dossier id into the scenario router.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: make-scenario-execution-gate
+  surface: make
+  workflow_key: scenario_execution
+  standards: [SOC2-CC8.1, ISO27001-A.5.15]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: protected_module_gate
+    when: "module.protected == true"
+    decision: |
+      ALLOW IF amount_usd < 2000
+      ESCALATE IF amount_usd < 25000
+      BLOCK OTHERWISE
+    reason_code: protected_module_over_threshold
+  - name: idempotency_requirement
+    when: "always"
+    decision: |
+      RESTRAIN IF request.idempotency_key == null
+      ALLOW OTHERWISE
+    reason_code: missing_idempotency_key
+  - name: entitlement_check
+    when: "always"
+    decision: |
+      BLOCK IF record.owner_org != connection.org_id
+      ALLOW OTHERWISE
+    reason_code: record_not_entitled

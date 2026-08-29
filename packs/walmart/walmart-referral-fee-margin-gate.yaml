@@ -1,0 +1,47 @@
+# Walmart Referral-Fee Margin Gate
+#
+# Folds the Walmart Marketplace referral fee into the margin gate before an order is acknowledged.
+#
+# Audience:  Walmart Marketplace sellers acknowledging orders automatically
+# Platform:  walmart
+# Vertical:  commerce
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.34, Order acknowledgement evidence
+# Install:   6 min — See the Walmart install guide
+# Rendered:  https://decionis.com/policy-exchange/walmart-referral-fee-margin-gate
+#
+# Rules in this pack:
+#   - Referral-fee margin check: Blocks acknowledging an order whose post-referral-fee margin falls under the encoded floor.
+#   - Promo-stacking ceiling: Escalates an order combining a rollback price with a further promotion.
+#   - Inventory sync restraint: Restrains acknowledgement when the inventory feed is older than the freshness window.
+# Fork: referral rates vary by category — set yours here.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: walmart-referral-fee-margin-gate
+  surface: walmart
+  workflow_key: order_acknowledgement
+  standards: [SOC2-CC8.1, ISO27001-A.8.34]
+defaults:
+  mode: shadow
+  emit_dossier: true
+margin_floor_pct: 8
+referral_fee_pct: 12
+rules:
+  - name: referral_fee_margin_check
+    when: "action == 'order.acknowledge'"
+    decision: |
+      BLOCK IF (order.total * (1 - referral_fee_pct / 100) - order.cost_basis) / order.total < margin_floor_pct / 100
+      ALLOW OTHERWISE
+    reason_code: post_referral_margin_below_floor
+  - name: promo_stacking_ceiling
+    when: "action == 'order.acknowledge'"
+    decision: |
+      ESCALATE IF price.is_rollback == true AND promotions.count > 0
+      ALLOW OTHERWISE
+    reason_code: rollback_and_promotion_stacked
+  - name: inventory_sync_restraint
+    when: "action == 'order.acknowledge'"
+    decision: |
+      RESTRAIN IF inventory.feed_age_minutes > 60
+      ALLOW OTHERWISE
+    reason_code: stale_inventory_feed

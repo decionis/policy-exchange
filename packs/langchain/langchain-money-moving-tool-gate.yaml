@@ -1,0 +1,47 @@
+# LangChain Money-Moving Tool Gate
+#
+# Wrap `send_refund`, `issue_payout`, or any tool that moves money — the inner tool only fires on an approve verdict.
+#
+# Audience:  Agent builders whose tool calls move money or write to a ledger
+# Platform:  langchain
+# Vertical:  ai_agency
+# Standards: SOC 2 CC7.2, ISO 27001 A.8.9, Payout evidence trail
+# Install:   3 min — View the Python source adapter
+# Rendered:  https://decionis.com/policy-exchange/langchain-money-moving-tool-gate
+#
+# Rules in this pack:
+#   - Refund ceiling: Auto-approves refunds under the escalation threshold for customers in good standing; escalates above it.
+#   - Active-chargeback block: Blocks any refund tied to an active chargeback, regardless of amount.
+#   - Duplicate-claim guard: Restrains a payout when the same claim reference has already been settled.
+# Fork: thresholds mirror the "Refunds" governance template — change them.
+# Wrap the tool with DecionisGateTool.wrap(shadow_mode=True) first.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: langchain-money-moving-tool-gate
+  surface: langchain
+  workflow_key: refund_execution
+  standards: [SOC2-CC7.2, ISO27001-A.8.9]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: refund_ceiling
+    when: "tool == 'send_refund'"
+    decision: |
+      ALLOW IF refund_amount < 1000 AND customer.standing == 'good'
+      ESCALATE IF refund_amount < 10000
+      BLOCK OTHERWISE
+    reason_code: refund_over_threshold
+  - name: active_chargeback_block
+    when: "tool == 'send_refund'"
+    decision: |
+      BLOCK IF chargeback == true
+      ALLOW OTHERWISE
+    reason_code: refund_on_active_chargeback
+  - name: duplicate_claim_guard
+    when: "tool in ['send_refund', 'issue_payout']"
+    decision: |
+      RESTRAIN IF claim.reference in ledger.settled_references
+      ALLOW OTHERWISE
+    reason_code: duplicate_claim_reference

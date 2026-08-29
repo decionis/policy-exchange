@@ -1,0 +1,47 @@
+# GitHub Branch-Protection Gate
+#
+# Require review before a force push. Blocks history rewrites on protected branches and escalates protection-setting changes.
+#
+# Audience:  Repo admins who want branch protection to be provable, not just configured
+# Platform:  github
+# Vertical:  it_ops
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.32, Source-control evidence
+# Install:   4 min — Add the GitHub Action
+# Rendered:  https://decionis.com/policy-exchange/github-branch-protection-gate
+#
+# Rules in this pack:
+#   - Force-push review requirement: Escalates a force push to a protected branch until a named reviewer signs it.
+#   - History-rewrite block: Blocks a rewrite of already-published history on a protected branch.
+#   - Protection-setting change escalation: Escalates any change to the branch-protection settings themselves.
+# Fork: set protected_branches, then flip mode to enforce when the shadow
+# verdicts look right.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: github-branch-protection-gate
+  surface: github
+  workflow_key: github_branch_protection
+  standards: [SOC2-CC8.1, ISO27001-A.8.32]
+defaults:
+  mode: shadow
+  emit_dossier: true
+  comment_pr: true
+protected_branches: [main, master, release/*, production]
+rules:
+  - name: force_push_review_requirement
+    when: "event == 'push'"
+    decision: |
+      ESCALATE IF push.forced == true AND ref in protected_branches
+      ALLOW OTHERWISE
+    reason_code: force_push_requires_review
+  - name: history_rewrite_block
+    when: "event == 'push'"
+    decision: |
+      BLOCK IF push.rewrites_published_history == true AND ref in protected_branches
+      ALLOW OTHERWISE
+    reason_code: published_history_rewrite
+  - name: protection_setting_change
+    when: "event == 'branch_protection_rule'"
+    decision: |
+      ESCALATE IF always
+    reason_code: branch_protection_changed

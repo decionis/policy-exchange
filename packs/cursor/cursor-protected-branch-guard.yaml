@@ -1,0 +1,46 @@
+# Cursor Protected-Branch Guard
+#
+# Never force-push to a protected branch, never rewrite shared history — the agent has to open a PR instead.
+#
+# Audience:  Teams running Cursor agents against a shared repository
+# Platform:  cursor
+# Vertical:  it_ops
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.32, Source-control evidence
+# Install:   5 min — Wire the agent hook
+# Rendered:  https://decionis.com/policy-exchange/cursor-protected-branch-guard
+#
+# Rules in this pack:
+#   - Force-push block: Blocks `git push --force` and `--force-with-lease` onto a protected branch.
+#   - History rewrite guard: Blocks a rebase or reset that would rewrite already-pushed commits.
+#   - Direct-to-default push escalation: Escalates a direct push to the default branch so it routes through review.
+# Fork: set protected_branches to your own list.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: cursor-protected-branch-guard
+  surface: cursor
+  standards: [SOC2-CC8.1, ISO27001-A.8.32]
+defaults:
+  mode: shadow
+  emit_dossier: true
+  fail_closed: true
+protected_branches: [main, master, release/*, production]
+rules:
+  - name: force_push_block
+    when: "tool == 'Bash' AND command matches '^git\s+push'"
+    decision: |
+      BLOCK IF command matches '(--force|-f\b|--force-with-lease)' AND target_branch in protected_branches
+      ALLOW OTHERWISE
+    reason_code: force_push_to_protected_branch
+  - name: history_rewrite_guard
+    when: "tool == 'Bash'"
+    decision: |
+      BLOCK IF command matches '^git\s+(rebase|reset --hard|filter-branch)' AND branch.is_pushed == true
+      ALLOW OTHERWISE
+    reason_code: shared_history_rewrite
+  - name: direct_to_default_push
+    when: "tool == 'Bash' AND command matches '^git\s+push'"
+    decision: |
+      ESCALATE IF target_branch == repo.default_branch
+      ALLOW OTHERWISE
+    reason_code: bypasses_pull_request_review

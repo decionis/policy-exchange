@@ -1,0 +1,48 @@
+# Copilot Agent Tool Whitelist
+#
+# Only the tools you approved fire. Everything else is denied at the pre-tool boundary with a reason the agent can read.
+#
+# Audience:  Teams running the Copilot CLI or cloud agent on real repositories
+# Platform:  copilot
+# Vertical:  ai_agency
+# Standards: SOC 2 CC7.2, ISO 27001 A.8.9, Client assurance
+# Install:   5 min — Wire the preToolUse hook
+# Rendered:  https://decionis.com/policy-exchange/copilot-agent-tool-whitelist
+#
+# Rules in this pack:
+#   - Approved-tool enforcement: Blocks any tool call outside the approved software list for the engagement.
+#   - Network egress gate: Escalates outbound calls to a host that is not on the allowed egress list.
+#   - Write-scope containment: Restrains writes outside the paths the engagement scope covers.
+# Fork: this is the ai_agency "Tool-Use Whitelist" gate, wired at the
+# preToolUse boundary in .github/hooks/*.json.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: copilot-agent-tool-whitelist
+  surface: copilot
+  standards: [SOC2-CC7.2, ISO27001-A.8.9]
+defaults:
+  mode: shadow
+  emit_dossier: true
+  fail_closed: true
+approved_tools: [read, edit, search, run_tests, open_pull_request]
+allowed_egress_hosts: ["api.github.com", "registry.npmjs.org"]
+rules:
+  - name: approved_tool_enforcement
+    when: "always"
+    decision: |
+      BLOCK IF tool not in approved_tools
+      ALLOW OTHERWISE
+    reason_code: tool_not_on_approved_list
+  - name: network_egress_gate
+    when: "tool_call.egress_host != null"
+    decision: |
+      ESCALATE IF tool_call.egress_host not in allowed_egress_hosts
+      ALLOW OTHERWISE
+    reason_code: egress_host_not_allowed
+  - name: write_scope_containment
+    when: "tool in ['edit', 'write']"
+    decision: |
+      RESTRAIN IF not path.startswith(engagement.scope_root)
+      ALLOW OTHERWISE
+    reason_code: write_outside_engagement_scope

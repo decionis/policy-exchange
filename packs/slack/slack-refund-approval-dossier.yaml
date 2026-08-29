@@ -1,0 +1,47 @@
+# Slack Refund-Approval Dossier
+#
+# Turns the refund approval that happens in a Slack thread into a signed verdict carrying the policy version and reviewer authority.
+#
+# Audience:  Support and finance teams approving refunds in Slack
+# Platform:  slack
+# Vertical:  fintech
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.34, Refund evidence trail
+# Install:   3 min — Install the Slack app
+# Rendered:  https://decionis.com/policy-exchange/slack-refund-approval-dossier
+#
+# Rules in this pack:
+#   - Threshold routing: Escalates refunds above the threshold into the named approver's queue.
+#   - Reviewer authority check: Blocks an approval from a reviewer whose authority limit is below the amount.
+#   - Duplicate-claim guard: Restrains a refund whose claim reference has already been settled.
+# Fork: /decionis → "Connect a workflow" → refund_approval, then edit the
+# thresholds here. Observation mode changes nothing in Slack.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: slack-refund-approval-dossier
+  surface: slack
+  workflow_key: refund_approval
+  standards: [SOC2-CC8.1, ISO27001-A.8.34]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: threshold_routing
+    when: "action == 'refund.approve'"
+    decision: |
+      ALLOW IF refund_amount < 1000
+      ESCALATE IF refund_amount < 10000
+      BLOCK OTHERWISE
+    reason_code: refund_over_threshold
+  - name: reviewer_authority_check
+    when: "action == 'refund.approve'"
+    decision: |
+      BLOCK IF approver.authority_limit_usd < refund_amount
+      ALLOW OTHERWISE
+    reason_code: approver_authority_insufficient
+  - name: duplicate_claim_guard
+    when: "action == 'refund.approve'"
+    decision: |
+      RESTRAIN IF claim.reference in ledger.settled_references
+      ALLOW OTHERWISE
+    reason_code: duplicate_claim_reference

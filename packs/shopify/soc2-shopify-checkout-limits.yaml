@@ -1,0 +1,45 @@
+# SOC 2 Shopify Checkout Limits
+#
+# Velocity, discount, and market-eligibility gates for Shopify checkout, B2B, and POS — with audit evidence for every exception.
+#
+# Audience:  Ecommerce ops and finance at SOC 2-scoped Shopify merchants
+# Platform:  shopify
+# Vertical:  commerce
+# Standards: SOC 2 CC8.1, SOC 2 CC6.1, PCI-aligned evidence
+# Install:   5 min — Install from the Shopify App Store
+# Rendered:  https://decionis.com/policy-exchange/soc2-shopify-checkout-limits
+#
+# Rules in this pack:
+#   - Transaction velocity ceiling: Blocks or escalates a transaction above the unvetted ceiling unless the customer reputation is trusted.
+#   - Discount exception gate: Escalates discounts above threshold when contract-value evidence is missing.
+#   - Market eligibility check: Restrains B2B orders routed to a market the customer is not entitled to.
+# Fork: replace thresholds with your own and deploy in shadow mode first.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: soc2-shopify-checkout-limits
+  surface: shopify
+  standards: [SOC2-CC8.1, SOC2-CC6.1]
+defaults:
+  mode: shadow            # shadow | enforce
+  emit_dossier: true
+rules:
+  - name: transaction_velocity_ceiling
+    when: "action == 'checkout.commit'"
+    decision: |
+      ALLOW IF tx_value < 1000 OR customer.reputation == 'trusted'
+      ESCALATE IF tx_value < 5000
+      BLOCK OTHERWISE
+    reason_code: velocity_ceiling_exceeded
+  - name: discount_exception_gate
+    when: "action == 'checkout.apply_discount'"
+    decision: |
+      ESCALATE IF discount_pct > 25 AND contract_value_evidence == null
+      ALLOW OTHERWISE
+    reason_code: discount_evidence_missing
+  - name: market_eligibility
+    when: "order.type == 'b2b'"
+    decision: |
+      RESTRAIN IF customer.market not in customer.entitled_markets
+      ALLOW OTHERWISE
+    reason_code: market_not_entitled

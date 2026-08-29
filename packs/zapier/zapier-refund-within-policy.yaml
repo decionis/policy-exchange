@@ -1,0 +1,45 @@
+# Zapier Refund-Within-Policy Gate
+#
+# Lets the Zap issue refunds that sit inside policy and holds the rest — with the reason code attached to the record.
+#
+# Audience:  Support and ecommerce ops automating refunds in Zapier
+# Platform:  zapier
+# Vertical:  commerce
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.34, Refund evidence trail
+# Install:   4 min — Add the Zapier action
+# Rendered:  https://decionis.com/policy-exchange/zapier-refund-within-policy
+#
+# Rules in this pack:
+#   - In-policy auto-approval: Allows refunds under the threshold for customers in good standing.
+#   - Return-window check: Escalates a refund requested outside the published return window.
+#   - Chargeback block: Blocks a refund on an order with an active chargeback.
+# Fork: set the threshold and return window from your published policy.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: zapier-refund-within-policy
+  surface: zapier
+  workflow_key: refund_approval
+  standards: [SOC2-CC8.1, ISO27001-A.8.34]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: in_policy_auto_approval
+    when: "action == 'refund.issue'"
+    decision: |
+      ALLOW IF refund_amount < 1000 AND customer.standing == 'good'
+      ESCALATE OTHERWISE
+    reason_code: refund_over_threshold
+  - name: return_window_check
+    when: "action == 'refund.issue'"
+    decision: |
+      ESCALATE IF order.days_since_delivery > 30
+      ALLOW OTHERWISE
+    reason_code: outside_return_window
+  - name: chargeback_block
+    when: "action == 'refund.issue'"
+    decision: |
+      BLOCK IF chargeback == true
+      ALLOW OTHERWISE
+    reason_code: refund_on_active_chargeback

@@ -1,0 +1,45 @@
+# Salesforce Discount Approval Gate
+#
+# Escalates quote discounts past the encoded band when the contract-value evidence is missing.
+#
+# Audience:  Deal desk and pricing teams approving quotes in Salesforce
+# Platform:  salesforce
+# Vertical:  saas_ops
+# Standards: SOC 2 CC8.1, ISO 27001 A.5.15, Pricing exception evidence
+# Install:   6 min — Open the Salesforce starter package
+# Rendered:  https://decionis.com/policy-exchange/salesforce-discount-approval-gate
+#
+# Rules in this pack:
+#   - Discount band escalation: Escalates discounts above 20% when contract-value evidence is missing.
+#   - Floor breach block: Blocks a quote whose net price falls under the encoded margin floor.
+#   - Stacked-concession restraint: Restrains a quote combining a discount with extra concessions beyond the authorized ceiling.
+# Fork: this is the saas_ops "Discount Logic Gate" expressed for CPQ quotes.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: salesforce-discount-approval-gate
+  surface: salesforce
+  workflow_key: quote_discount_approval
+  standards: [SOC2-CC8.1, ISO27001-A.5.15]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: discount_band_escalation
+    when: "action == 'quote.submit'"
+    decision: |
+      ESCALATE IF discount_pct > 20 AND contract_value_usd < 50000
+      ALLOW OTHERWISE
+    reason_code: discount_evidence_missing
+  - name: floor_breach_block
+    when: "action == 'quote.submit'"
+    decision: |
+      BLOCK IF net_margin_pct < margin_floor_pct
+      ALLOW OTHERWISE
+    reason_code: below_margin_floor
+  - name: stacked_concession_restraint
+    when: "action == 'quote.submit'"
+    decision: |
+      RESTRAIN IF concessions.count > 1 AND discount_pct > 15
+      ALLOW OTHERWISE
+    reason_code: stacked_concessions_over_ceiling

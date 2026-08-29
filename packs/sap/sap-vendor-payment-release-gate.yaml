@@ -1,0 +1,48 @@
+# SAP Vendor Payment Release Gate
+#
+# Holds a vendor payment run until the bank details, sanctions evidence, and dual approval all check out.
+#
+# Audience:  Finance and AP teams releasing payments from SAP S/4HANA
+# Platform:  sap
+# Vertical:  fintech
+# Standards: SOC 2 CC8.1, ISO 27001 A.5.19, SOX payment controls
+# Install:   8 min — View the SAP Solution Hub listing
+# Rendered:  https://decionis.com/policy-exchange/sap-vendor-payment-release-gate
+#
+# Rules in this pack:
+#   - Bank-detail change hold: Blocks a payment when the vendor's banking details changed since the invoice was raised.
+#   - Sanctions freshness: Requires fresh sanctions evidence before an international payout executes.
+#   - Treasury dual approval: Requires dual approval before corporate funds move above the threshold.
+# Fork: this is the fintech pack's Cross-Border Sanction Check + Treasury Lock
+# expressed at the SAP payment-run boundary.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: sap-vendor-payment-release-gate
+  surface: sap
+  workflow_key: vendor_payment_release
+  standards: [SOC2-CC8.1, ISO27001-A.5.19]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: bank_detail_change_hold
+    when: "action == 'payment.release'"
+    decision: |
+      BLOCK IF vendor.bank_details_changed_since_invoice == true
+      ALLOW OTHERWISE
+    reason_code: bank_details_changed_after_invoice
+  - name: sanctions_freshness
+    when: "action == 'payment.release' AND cross_border == true"
+    decision: |
+      BLOCK IF sanctions_evidence.age_hours > 24
+      ESCALATE IF sanctions_evidence == null
+      ALLOW OTHERWISE
+    reason_code: stale_sanctions_evidence
+  - name: treasury_dual_approval
+    when: "action == 'payment.release'"
+    decision: |
+      ESCALATE IF amount_usd >= 10000 AND approvals.count < 2
+      BLOCK IF amount_usd >= 250000 AND approvals.count < 2
+      ALLOW OTHERWISE
+    reason_code: dual_approval_required

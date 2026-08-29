@@ -1,0 +1,46 @@
+# Salesforce Opportunity-Stage Guard
+#
+# Never let an automation or agent move an opportunity above $1M into Closed Won without the approval chain.
+#
+# Audience:  RevOps and sales leadership on Salesforce with automated stage updates
+# Platform:  salesforce
+# Vertical:  saas_ops
+# Standards: SOC 2 CC8.1, ISO 27001 A.5.15, Revenue recognition evidence
+# Install:   6 min — Find it on AppExchange
+# Rendered:  https://decionis.com/policy-exchange/salesforce-opportunity-stage-guard
+#
+# Rules in this pack:
+#   - High-value stage escalation: Escalates a stage change to Closed Won on an opportunity above $1M until the approval chain signs.
+#   - Automated-actor restraint: Restrains a stage change made by an automation or agent rather than a named rep.
+#   - Backdated close block: Blocks a close date set earlier than the current period.
+# Fork: set the value ceiling and the approver roles for your org.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: salesforce-opportunity-stage-guard
+  surface: salesforce
+  workflow_key: opportunity_stage_change
+  standards: [SOC2-CC8.1, ISO27001-A.5.15]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: high_value_stage_escalation
+    when: "action == 'opportunity.stage_change' AND stage_to == 'Closed Won'"
+    decision: |
+      ALLOW IF amount_usd < 1000000
+      ESCALATE IF approval_chain_complete == true
+      BLOCK OTHERWISE
+    reason_code: high_value_stage_change
+  - name: automated_actor_restraint
+    when: "action == 'opportunity.stage_change'"
+    decision: |
+      RESTRAIN IF actor.type in ['automation', 'agent']
+      ALLOW OTHERWISE
+    reason_code: stage_change_by_non_human
+  - name: backdated_close_block
+    when: "action == 'opportunity.stage_change'"
+    decision: |
+      BLOCK IF close_date < period.start
+      ALLOW OTHERWISE
+    reason_code: close_date_backdated

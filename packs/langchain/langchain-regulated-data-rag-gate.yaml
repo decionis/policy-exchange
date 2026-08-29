@@ -1,0 +1,47 @@
+# LangChain Regulated-Data RAG Gate
+#
+# Gates retrieval and external API calls that touch regulated records — restricted subjects never leave the boundary.
+#
+# Audience:  Teams running RAG or external API calls over regulated customer data
+# Platform:  langchain
+# Vertical:  it_ops
+# Standards: HIPAA §164.312(a), SOC 2 CC6.1, ISO 27001 A.5.34
+# Install:   5 min — View the Python source adapter
+# Rendered:  https://decionis.com/policy-exchange/langchain-regulated-data-rag-gate
+#
+# Rules in this pack:
+#   - Restricted-subject block: Blocks retrieval or action on a customer marked restricted.
+#   - Purpose-limitation check: Restrains a retrieval whose declared purpose is not on the approved list.
+#   - External-egress escalation: Escalates any call that would send regulated fields to a host outside the boundary.
+# Fork: set approved_purposes and boundary_hosts for your environment.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: langchain-regulated-data-rag-gate
+  surface: langchain
+  workflow_key: regulated_retrieval
+  standards: [HIPAA-164.312, SOC2-CC6.1, ISO27001-A.5.34]
+defaults:
+  mode: shadow
+  emit_dossier: true
+approved_purposes: [care_coordination, billing_support, member_service]
+boundary_hosts: ["internal.records.local"]
+rules:
+  - name: restricted_subject_block
+    when: "tool in ['retrieve', 'lookup_customer']"
+    decision: |
+      BLOCK IF subject.restricted == true
+      ALLOW OTHERWISE
+    reason_code: restricted_subject
+  - name: purpose_limitation_check
+    when: "tool == 'retrieve'"
+    decision: |
+      RESTRAIN IF request.purpose not in approved_purposes
+      ALLOW OTHERWISE
+    reason_code: purpose_not_approved
+  - name: external_egress_escalation
+    when: "tool_call.egress_host != null"
+    decision: |
+      ESCALATE IF payload.contains_regulated_fields == true AND tool_call.egress_host not in boundary_hosts
+      ALLOW OTHERWISE
+    reason_code: regulated_data_leaving_boundary

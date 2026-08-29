@@ -1,0 +1,46 @@
+# SaaS Ops Pack
+#
+# Cloud spend, discount, and entitlement gates — stop runaway burn, margin leakage, and unsupported entitlement changes.
+#
+# Audience:  B2B SaaS finance, RevOps, DevOps
+# Platform:  sdk
+# Vertical:  saas_ops
+# Standards: SOC 2 CC6.1, ISO 27001 A.5.15, Change evidence
+# Install:   4 min — Read the API reference
+# Rendered:  https://decionis.com/policy-exchange/saas-ops-pack
+#
+# Rules in this pack:
+#   - Cloud Spend Circuit Breaker: Restrains automated changes that would materially increase daily burn.
+#   - Discount Logic Gate: Escalates discount exceptions when contract value evidence is missing.
+#   - Entitlement Enforcement: Checks plan and contract terms before premium access is granted.
+# Fork: the three gates from the saas_ops starter pack, with your thresholds.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: saas-ops-pack
+  surface: sdk
+  policy_pack_id: saas_ops
+  standards: [SOC2-CC6.1, ISO27001-A.5.15]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: cloud_spend_circuit_breaker
+    when: "action == 'infrastructure.change'"
+    decision: |
+      RESTRAIN IF daily_burn_delta_percent > 15
+      ALLOW OTHERWISE
+    reason_code: burn_delta_over_threshold
+  - name: discount_logic_gate
+    when: "action == 'pricing.discount'"
+    decision: |
+      ESCALATE IF discount_percent > 20 AND contract_value_usd < 50000
+      ALLOW OTHERWISE
+    reason_code: discount_evidence_missing
+  - name: entitlement_enforcement
+    when: "action == 'entitlement.grant'"
+    decision: |
+      BLOCK IF feature not in plan.entitled_features
+      ESCALATE IF contract.term_end < now
+      ALLOW OTHERWISE
+    reason_code: feature_not_entitled

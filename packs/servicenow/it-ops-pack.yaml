@@ -1,0 +1,46 @@
+# IT Ops Pack
+#
+# Access, change, and procurement gates for internal automation — prove every sensitive change followed the approved path.
+#
+# Audience:  Mid-market IT, security, platform ops
+# Platform:  servicenow
+# Vertical:  it_ops
+# Standards: SOC 2 CC6.2, ISO 27001 A.5.18, Access review evidence
+# Install:   5 min — See the ServiceNow install guide
+# Rendered:  https://decionis.com/policy-exchange/it-ops-pack
+#
+# Rules in this pack:
+#   - Access Change Gate: Requires a timed, approved dossier for sensitive access and change workflows.
+#   - Just-In-Time Access: Adds a timed dossier and revocation trail for temporary admin rights.
+#   - Software Procurement Gate: Blocks unapproved OAuth and SaaS procurement events before signup.
+# Fork: the three gates from the it_ops starter pack, with your thresholds.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: it-ops-pack
+  surface: servicenow
+  policy_pack_id: it_ops
+  standards: [SOC2-CC6.2, ISO27001-A.5.18]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: access_change_gate
+    when: "request startswith 'access.'"
+    decision: |
+      ESCALATE IF approval_dossier == null
+      ALLOW OTHERWISE
+    reason_code: access_change_without_dossier
+  - name: just_in_time_access
+    when: "request == 'access.temporary_admin'"
+    decision: |
+      BLOCK IF requested_duration_hours > 8
+      ESCALATE IF revocation_scheduled_at == null
+      ALLOW OTHERWISE
+    reason_code: jit_window_or_revocation_missing
+  - name: software_procurement_gate
+    when: "action in ['oauth.grant', 'saas.signup']"
+    decision: |
+      BLOCK IF vendor.id not in approved_software_catalog
+      ALLOW OTHERWISE
+    reason_code: unapproved_software_procurement

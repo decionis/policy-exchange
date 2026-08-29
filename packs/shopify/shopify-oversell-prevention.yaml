@@ -1,0 +1,46 @@
+# Shopify Oversell Prevention
+#
+# Blocks fulfilling an order for stock oversold across channels — before the fulfillment token is issued.
+#
+# Audience:  Multi-channel Shopify merchants with a shared inventory pool
+# Platform:  shopify
+# Vertical:  commerce
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.34, Fulfillment evidence trail
+# Install:   5 min — Install from the Shopify App Store
+# Rendered:  https://decionis.com/policy-exchange/shopify-oversell-prevention
+#
+# Rules in this pack:
+#   - Over-selling gate: Blocks an order that would ship more units than the system of record has in stock.
+#   - Cross-channel reservation guard: Restrains fulfillment when the same units are reserved on another channel.
+#   - Stale inventory feed check: Escalates a fulfillment decided on an inventory feed older than the freshness window.
+# Fork: set the feed freshness window your integration can actually hold.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: shopify-oversell-prevention
+  surface: shopify
+  workflow_key: order_fulfillment
+  standards: [SOC2-CC8.1, ISO27001-A.8.34]
+defaults:
+  mode: shadow
+  emit_dossier: true
+feed_freshness_minutes: 30
+rules:
+  - name: over_selling_gate
+    when: "action == 'order.fulfill'"
+    decision: |
+      BLOCK IF units_ordered > units_available
+      ALLOW OTHERWISE
+    reason_code: oversold_inventory
+  - name: cross_channel_reservation_guard
+    when: "action == 'order.fulfill'"
+    decision: |
+      RESTRAIN IF inventory.reserved_on_other_channel == true
+      ALLOW OTHERWISE
+    reason_code: units_reserved_elsewhere
+  - name: stale_inventory_feed_check
+    when: "action == 'order.fulfill'"
+    decision: |
+      ESCALATE IF inventory.feed_age_minutes > feed_freshness_minutes
+      ALLOW OTHERWISE
+    reason_code: stale_inventory_feed

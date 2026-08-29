@@ -1,0 +1,47 @@
+# WooCommerce Margin Floor Guard
+#
+# Never discount below margin. Holds a WooCommerce checkout whose net margin would breach the encoded floor.
+#
+# Audience:  WooCommerce store owners running promotions and dynamic pricing
+# Platform:  woocommerce
+# Vertical:  commerce
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.34, Checkout evidence trail
+# Install:   5 min — See the WooCommerce install guide
+# Rendered:  https://decionis.com/policy-exchange/woocommerce-margin-floor-guard
+#
+# Rules in this pack:
+#   - Margin floor: Blocks any order whose net margin would breach the encoded floor.
+#   - Coupon stacking ceiling: Stops unauthorized or cascading discount stacking at checkout.
+#   - Shipping-subsidy check: Escalates an order where free shipping pushes the landed margin under the floor even though the item margin passes.
+# Fork: replace margin_floor_pct with your own cost basis and floor.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: woocommerce-margin-floor-guard
+  surface: woocommerce
+  workflow_key: checkout_margin_guard
+  standards: [SOC2-CC8.1, ISO27001-A.8.34]
+defaults:
+  mode: shadow
+  emit_dossier: true
+margin_floor_pct: 12
+rules:
+  - name: margin_floor
+    when: "action == 'checkout.commit'"
+    decision: |
+      BLOCK IF order.net_margin_pct < margin_floor_pct
+      ALLOW OTHERWISE
+    reason_code: below_margin_floor
+  - name: coupon_stacking_ceiling
+    when: "action == 'checkout.apply_discount'"
+    decision: |
+      BLOCK IF coupons.count > 1 AND combined_discount_pct > 30
+      ESCALATE IF coupons.count > 1
+      ALLOW OTHERWISE
+    reason_code: unauthorized_coupon_stacking
+  - name: shipping_subsidy_check
+    when: "action == 'checkout.commit'"
+    decision: |
+      ESCALATE IF order.landed_margin_pct < margin_floor_pct
+      ALLOW OTHERWISE
+    reason_code: shipping_subsidy_erodes_margin
