@@ -1,0 +1,47 @@
+# Codex Blast-Radius Gate
+#
+# Scores every Codex tool call by blast radius and escalates anything that could touch production before it runs.
+#
+# Audience:  Teams running Codex with repository and shell access
+# Platform:  codex
+# Vertical:  it_ops
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.32, Agent action evidence
+# Install:   5 min — Wire the PreToolUse hook
+# Rendered:  https://decionis.com/policy-exchange/codex-blast-radius-gate
+#
+# Rules in this pack:
+#   - Production target escalation: Escalates any tool call whose resolved target is a production environment.
+#   - Estimated blast-radius ceiling: Escalates any action with an estimated blast radius over the encoded threshold.
+#   - Unapproved tool block: Blocks tool calls outside the approved tool list for this repository.
+# Fork: set the blast-radius threshold and the approved tool list.
+# Wire at PreToolUse in .codex/hooks.json.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: codex-blast-radius-gate
+  surface: codex
+  standards: [SOC2-CC8.1, ISO27001-A.8.32]
+defaults:
+  mode: shadow
+  emit_dossier: true
+  fail_closed: true
+approved_tools: [read, edit, search, test_runner, build]
+rules:
+  - name: production_target_escalation
+    when: "tool_call.resolved_env != null"
+    decision: |
+      ESCALATE IF tool_call.resolved_env == 'production'
+      ALLOW OTHERWISE
+    reason_code: production_target_requires_approver
+  - name: blast_radius_ceiling
+    when: "tool_call.estimated_blast_radius_usd != null"
+    decision: |
+      ESCALATE IF tool_call.estimated_blast_radius_usd > 10000
+      ALLOW OTHERWISE
+    reason_code: blast_radius_over_threshold
+  - name: unapproved_tool_block
+    when: "always"
+    decision: |
+      BLOCK IF tool not in approved_tools
+      ALLOW OTHERWISE
+    reason_code: tool_not_on_approved_list

@@ -1,0 +1,45 @@
+# Claude Code Migration & Infra Gate
+#
+# Holds agent-authored database migrations and `terraform apply` runs until a human signs the blast radius.
+#
+# Audience:  Backend and platform teams whose agents can reach migrations and IaC
+# Platform:  claude_code
+# Vertical:  it_ops
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.32, Change evidence
+# Install:   6 min — Wire the PreToolUse hook
+# Rendered:  https://decionis.com/policy-exchange/claude-code-migration-and-infra-gate
+#
+# Rules in this pack:
+#   - Destructive migration escalation: Escalates any migration that drops a column or table; allows additive ones.
+#   - IAM and network change escalation: Escalates infrastructure changes that touch IAM, security groups, or networking.
+#   - Force-replace block: Blocks a resource delete or force-replace unless an explicit approval label is present.
+# Fork: mirrors the DECIONIS_POLICY.md rules shipped with the GitHub examples.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: claude-code-migration-and-infra-gate
+  surface: claude_code
+  standards: [SOC2-CC8.1, ISO27001-A.8.32]
+defaults:
+  mode: shadow
+  emit_dossier: true
+  fail_closed: true
+rules:
+  - name: destructive_migration_escalation
+    when: "change.kind == 'migration'"
+    decision: |
+      ESCALATE IF migration.drops_column == true OR migration.drops_table == true
+      ALLOW OTHERWISE
+    reason_code: destructive_migration_requires_approval
+  - name: iam_and_network_change
+    when: "tool == 'Bash' AND command matches '(terraform apply|pulumi up|cdk deploy)'"
+    decision: |
+      ESCALATE IF context.touches_iam == true OR context.touches_network == true
+      ALLOW OTHERWISE
+    reason_code: privileged_infra_change
+  - name: force_replace_block
+    when: "tool == 'Bash' AND command matches '(terraform|pulumi)'"
+    decision: |
+      BLOCK IF plan.destroys_resources == true AND pr.labels not contains 'approved-destructive'
+      ALLOW OTHERWISE
+    reason_code: unlabeled_destructive_plan

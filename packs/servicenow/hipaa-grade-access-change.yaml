@@ -1,0 +1,44 @@
+# HIPAA-Grade Access Change Gate
+#
+# Privileged-access and production-change controls for ServiceNow ITSM — proving every change followed the approved path.
+#
+# Audience:  Platform and security leads at health-tech and regulated orgs
+# Platform:  servicenow
+# Vertical:  it_ops
+# Standards: HIPAA §164.312(a), SOC 2 CC6.2, ISO 27001 A.5.18
+# Install:   6 min — Follow the quickstart guide
+# Rendered:  https://decionis.com/policy-exchange/hipaa-grade-access-change
+#
+# Rules in this pack:
+#   - Role scope enforcement: Blocks production access for roles without administrative scope.
+#   - Maintenance window gate: Allows changes only inside scheduled maintenance windows or with lead approval.
+#   - Evidence completeness: Restrains a change request until linked Jira / CAB evidence is present.
+# Fork: tune roles, windows, and evidence sources to your environment.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: hipaa-grade-access-change
+  surface: servicenow
+  standards: [HIPAA-164.312, SOC2-CC6.2, ISO27001-A.5.18]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: role_scope_enforcement
+    when: "request == 'access.prod_db'"
+    decision: |
+      APPROVE IF actor.role == 'Lead' OR actor.role in admin_scope
+      BLOCK OTHERWISE
+    reason_code: role_lacks_admin_scope
+  - name: maintenance_window_gate
+    when: "change.type == 'production'"
+    decision: |
+      APPROVE IF window == 'scheduled_maintenance' OR approver.role == 'Lead'
+      ESCALATE OTHERWISE
+    reason_code: outside_maintenance_window
+  - name: evidence_completeness
+    when: "change.type == 'production'"
+    decision: |
+      RESTRAIN IF change.jira_evidence == null
+      ALLOW OTHERWISE
+    reason_code: cab_evidence_missing

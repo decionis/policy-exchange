@@ -1,0 +1,46 @@
+# ServiceNow Software Procurement Gate
+#
+# Blocks unapproved OAuth grants and SaaS signups before anyone clicks through the terms.
+#
+# Audience:  IT procurement and security reviewing shadow-IT signups
+# Platform:  servicenow
+# Vertical:  it_ops
+# Standards: SOC 2 CC6.1, ISO 27001 A.5.19, Procurement evidence
+# Install:   6 min — Find it on the ServiceNow Store
+# Rendered:  https://decionis.com/policy-exchange/servicenow-software-procurement-gate
+#
+# Rules in this pack:
+#   - Approved-catalog requirement: Blocks an OAuth grant or SaaS signup for a vendor outside the approved catalog.
+#   - Scope-creep escalation: Escalates an OAuth grant requesting broader scopes than the catalog entry authorized.
+#   - Data-residency restraint: Restrains procurement of a tool that processes data outside the allowed regions.
+# Fork: point approved_software_catalog at your own CMDB / vendor list.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: servicenow-software-procurement-gate
+  surface: servicenow
+  workflow_key: software_procurement
+  standards: [SOC2-CC6.1, ISO27001-A.5.19]
+defaults:
+  mode: shadow
+  emit_dossier: true
+allowed_regions: [EU, US]
+rules:
+  - name: approved_catalog_requirement
+    when: "action in ['oauth.grant', 'saas.signup']"
+    decision: |
+      BLOCK IF vendor.id not in approved_software_catalog
+      ALLOW OTHERWISE
+    reason_code: unapproved_software_procurement
+  - name: scope_creep_escalation
+    when: "action == 'oauth.grant'"
+    decision: |
+      ESCALATE IF requested_scopes not subset_of catalog_entry.authorized_scopes
+      ALLOW OTHERWISE
+    reason_code: oauth_scope_exceeds_catalog
+  - name: data_residency_restraint
+    when: "action == 'saas.signup'"
+    decision: |
+      RESTRAIN IF vendor.processing_region not in allowed_regions
+      ALLOW OTHERWISE
+    reason_code: processing_region_not_allowed

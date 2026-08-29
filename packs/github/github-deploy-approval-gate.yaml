@@ -1,0 +1,47 @@
+# GitHub Deploy Approval Gate
+#
+# Blocks production deploys during a freeze, escalates out-of-hours releases, and stamps the verdict on the PR.
+#
+# Audience:  CI/CD owners gating deploys, releases, and infra changes
+# Platform:  github
+# Vertical:  it_ops
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.32, Change evidence
+# Install:   4 min — Add the GitHub Action
+# Rendered:  https://decionis.com/policy-exchange/github-deploy-approval-gate
+#
+# Rules in this pack:
+#   - Change-freeze block: Blocks a production deploy while a change freeze is active.
+#   - Out-of-hours escalation: Escalates any production deploy outside business hours to a human approver.
+#   - Green-CI allowance: Allows deploys that carry a green CI run and an approved pull request.
+# Fork: mirrors the DECIONIS_POLICY.md shipped in apps/github/examples.
+# Start with mode: shadow — the step records every verdict and never fails.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: github-deploy-approval-gate
+  surface: github
+  workflow_key: github_deploy_approval
+  standards: [SOC2-CC8.1, ISO27001-A.8.32]
+defaults:
+  mode: shadow            # shadow | enforce
+  emit_dossier: true
+  comment_pr: true
+rules:
+  - name: change_freeze_block
+    when: "decision_type == 'production-deploy'"
+    decision: |
+      BLOCK IF context.change_freeze == true
+      ALLOW OTHERWISE
+    reason_code: deploy_during_change_freeze
+  - name: out_of_hours_escalation
+    when: "decision_type == 'production-deploy'"
+    decision: |
+      ESCALATE IF context.business_hours == false
+      ALLOW OTHERWISE
+    reason_code: deploy_outside_business_hours
+  - name: green_ci_allowance
+    when: "decision_type == 'production-deploy'"
+    decision: |
+      ALLOW IF context.ci_status == 'success' AND context.pr_approved == true
+      ESCALATE OTHERWISE
+    reason_code: missing_green_ci_or_approval

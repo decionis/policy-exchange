@@ -1,0 +1,46 @@
+# Vertex AI Tool-Execution Gate
+#
+# Gates the extension call a Vertex AI model wants to make, so an out-of-scope or unapproved tool never executes.
+#
+# Audience:  Teams running governed execution through the Vertex AI extension surface
+# Platform:  vertex_ai
+# Vertical:  ai_agency
+# Standards: SOC 2 CC7.2, ISO 27001 A.8.9, Agent action evidence
+# Install:   7 min — Read the Vertex AI extension guide
+# Rendered:  https://decionis.com/policy-exchange/vertex-ai-tool-execution-gate
+#
+# Rules in this pack:
+#   - Approved-extension check: Blocks an extension call outside the approved list for the project.
+#   - Scope containment: Blocks a call whose target falls outside the agent's declared scope.
+#   - Human-approval requirement: Escalates when the call carries a requires-human-approval flag.
+# Fork: list the extensions your project actually approves.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: vertex-ai-tool-execution-gate
+  surface: vertex_ai
+  standards: [SOC2-CC7.2, ISO27001-A.8.9]
+defaults:
+  mode: shadow
+  emit_dossier: true
+  fail_closed: true
+approved_extensions: [code_interpreter, vertex_ai_search, internal_lookup]
+rules:
+  - name: approved_extension_check
+    when: "action == 'extension.execute'"
+    decision: |
+      BLOCK IF extension.id not in approved_extensions
+      ALLOW OTHERWISE
+    reason_code: extension_not_approved
+  - name: scope_containment
+    when: "action == 'extension.execute'"
+    decision: |
+      BLOCK IF outside_scope == true
+      ALLOW OTHERWISE
+    reason_code: call_outside_agent_scope
+  - name: human_approval_requirement
+    when: "action == 'extension.execute'"
+    decision: |
+      ESCALATE IF requires_human == true
+      ALLOW OTHERWISE
+    reason_code: call_requires_human_approval

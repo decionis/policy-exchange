@@ -1,0 +1,46 @@
+# eBay Listing Margin Gate
+#
+# Folds eBay final-value fees and promoted-listing rates into the margin check before a listing or price change goes live.
+#
+# Audience:  eBay sellers running repricers or automated listing tools
+# Platform:  ebay
+# Vertical:  commerce
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.34, Listing evidence trail
+# Install:   6 min — See the eBay install guide
+# Rendered:  https://decionis.com/policy-exchange/ebay-listing-margin-gate
+#
+# Rules in this pack:
+#   - Fee-adjusted margin floor: Blocks a listing price whose margin, after final-value and promoted-listing fees, is under the floor.
+#   - Repricer floor breach: Blocks a repricer update that would push the price below the encoded floor.
+#   - Promotion-stacking check: Escalates a listing that combines a markdown with a promoted-listing rate above the ceiling.
+# Fork: set your own category fee rate and floor.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: ebay-listing-margin-gate
+  surface: ebay
+  workflow_key: listing_price_change
+  standards: [SOC2-CC8.1, ISO27001-A.8.34]
+defaults:
+  mode: shadow
+  emit_dossier: true
+margin_floor_pct: 10
+rules:
+  - name: fee_adjusted_margin_floor
+    when: "action == 'listing.publish'"
+    decision: |
+      BLOCK IF (price - item.cost_basis - fees.final_value - fees.promoted) / price < margin_floor_pct / 100
+      ALLOW OTHERWISE
+    reason_code: fee_adjusted_margin_below_floor
+  - name: repricer_floor_breach
+    when: "action == 'listing.reprice' AND actor.type == 'automation'"
+    decision: |
+      BLOCK IF new_price < listing.encoded_price_floor
+      ALLOW OTHERWISE
+    reason_code: repricer_below_encoded_floor
+  - name: promotion_stacking_check
+    when: "action == 'listing.publish'"
+    decision: |
+      ESCALATE IF markdown_pct > 0 AND fees.promoted_rate_pct > 8
+      ALLOW OTHERWISE
+    reason_code: markdown_and_promoted_rate_stacked

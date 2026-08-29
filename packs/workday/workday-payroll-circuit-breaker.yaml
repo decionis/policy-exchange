@@ -1,0 +1,45 @@
+# Workday Payroll Circuit Breaker
+#
+# Catches an out-of-band payroll run — a bank-detail change, an off-cycle payment, a headcount jump — before the money leaves.
+#
+# Audience:  Payroll and HR operations teams on Workday
+# Platform:  workday
+# Vertical:  hr
+# Standards: SOC 2 CC1.4, ISO 27001 A.6.1, SOX payroll controls
+# Install:   8 min — Workday design-partner program
+# Rendered:  https://decionis.com/policy-exchange/workday-payroll-circuit-breaker
+#
+# Rules in this pack:
+#   - Off-cycle run escalation: Escalates any payroll run outside the published calendar.
+#   - Bank-detail change hold: Blocks payment to an employee whose bank details changed inside the cooling-off window.
+#   - Headcount delta restraint: Restrains a run whose net pay moves more than the allowed delta versus last cycle.
+# Fork: set the cooling-off window and the acceptable cycle delta.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: workday-payroll-circuit-breaker
+  surface: workday
+  workflow_key: payroll_run_release
+  standards: [SOC2-CC1.4, ISO27001-A.6.1]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: off_cycle_run_escalation
+    when: "action == 'payroll.run'"
+    decision: |
+      ESCALATE IF run.date not in payroll_calendar
+      ALLOW OTHERWISE
+    reason_code: off_cycle_payroll_run
+  - name: bank_detail_change_hold
+    when: "action == 'payroll.pay_worker'"
+    decision: |
+      BLOCK IF worker.bank_details_changed_hours_ago < 72
+      ALLOW OTHERWISE
+    reason_code: bank_change_inside_cooling_off
+  - name: headcount_delta_restraint
+    when: "action == 'payroll.run'"
+    decision: |
+      RESTRAIN IF abs(run.net_pay_usd - previous_run.net_pay_usd) / previous_run.net_pay_usd > 0.15
+      ALLOW OTHERWISE
+    reason_code: payroll_delta_over_threshold

@@ -1,0 +1,48 @@
+# Universal Action Gate Baseline
+#
+# The starting policy for any point of execution: risk band, hard rules, and a signed dossier on every verdict.
+#
+# Audience:  Engineers wiring the gate into their own service before the action commits
+# Platform:  sdk
+# Vertical:  cross_vertical
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.32, Decision evidence
+# Install:   5 min — Read the protocol guide
+# Rendered:  https://decionis.com/policy-exchange/sdk-universal-action-gate-baseline
+#
+# Rules in this pack:
+#   - Risk band routing: Allows below the escalation threshold, escalates in the middle band, blocks above.
+#   - Hard-rule precedence: Hard rules win over the score — a restricted subject blocks regardless of band.
+#   - Fail-closed on outage: Restrains the action when the gate cannot be reached, so nothing commits unevaluated.
+# Fork: this is the neutral starting shape. Replace risk_field and thresholds
+# with the signal your own payload actually carries.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: sdk-universal-action-gate-baseline
+  surface: sdk
+  standards: [SOC2-CC8.1, ISO27001-A.8.32]
+defaults:
+  mode: shadow
+  emit_dossier: true
+  fail_closed: true
+risk_field: risk_score
+rules:
+  - name: risk_band_routing
+    when: "always"
+    decision: |
+      ALLOW IF risk_score < 60
+      ESCALATE IF risk_score < 85
+      BLOCK OTHERWISE
+    reason_code: risk_score_over_threshold
+  - name: hard_rule_precedence
+    when: "always"
+    decision: |
+      BLOCK IF restricted == true
+      ESCALATE IF requires_human_approval == true
+      ALLOW OTHERWISE
+    reason_code: hard_rule_matched
+  - name: fail_closed_on_outage
+    when: "gate.reachable == false"
+    decision: |
+      RESTRAIN IF always
+    reason_code: gate_unreachable_fail_closed

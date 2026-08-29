@@ -1,0 +1,45 @@
+# Reddit Moderation Safety Baseline
+#
+# Toxicity, account-age, and brigading controls for automated moderation — with a signed reason for every removal.
+#
+# Audience:  Trust & safety and community ops running automated moderation
+# Platform:  reddit
+# Vertical:  cross_vertical
+# Standards: Auditable enforcement trail, Appeal-ready evidence
+# Install:   4 min — Open the Reddit Mod-Shield editor
+# Rendered:  https://decionis.com/policy-exchange/reddit-mod-safety-baseline
+#
+# Rules in this pack:
+#   - Toxicity threshold: Removes content above the toxicity threshold for young accounts.
+#   - Account-age guard: Escalates removals on established accounts for human review.
+#   - Brigading signal: Restrains mass actions that match a coordinated-brigade pattern.
+# Fork: adjust thresholds; every removal emits an appeal-ready dossier.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: reddit-mod-safety-baseline
+  surface: reddit
+  standards: [auditable-enforcement]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: toxicity_threshold
+    when: "action == 'moderation.remove'"
+    decision: |
+      REMOVE IF toxicity > 0.85 AND author.account_age_days < 30
+      ESCALATE IF toxicity > 0.85
+      ALLOW OTHERWISE
+    reason_code: toxicity_over_threshold
+  - name: account_age_guard
+    when: "action == 'moderation.remove'"
+    decision: |
+      ESCALATE IF author.account_age_days >= 365
+      ALLOW OTHERWISE
+    reason_code: established_account_review
+  - name: brigading_signal
+    when: "action == 'moderation.bulk_remove'"
+    decision: |
+      RESTRAIN IF signals.coordinated_pattern == true
+      ALLOW OTHERWISE
+    reason_code: coordinated_brigade_suspected

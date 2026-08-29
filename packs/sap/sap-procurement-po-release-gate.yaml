@@ -1,0 +1,45 @@
+# SAP Procurement PO Release Gate
+#
+# Stops a purchase order releasing to an unapproved supplier or past the requester's authority limit.
+#
+# Audience:  Procurement and finance controls teams on SAP
+# Platform:  sap
+# Vertical:  it_ops
+# Standards: SOC 2 CC6.1, ISO 27001 A.5.19, Procurement evidence
+# Install:   8 min — See the enterprise integration guide
+# Rendered:  https://decionis.com/policy-exchange/sap-procurement-po-release-gate
+#
+# Rules in this pack:
+#   - Approved-supplier requirement: Blocks a PO release to a supplier that is not on the approved master list.
+#   - Authority ceiling: Escalates a PO above the requester's delegated authority limit.
+#   - Three-way match restraint: Restrains a release when the PO, receipt, and invoice do not reconcile.
+# Fork: point supplier_master at your own approved-vendor source.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: sap-procurement-po-release-gate
+  surface: sap
+  workflow_key: purchase_order_release
+  standards: [SOC2-CC6.1, ISO27001-A.5.19]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: approved_supplier_requirement
+    when: "action == 'po.release'"
+    decision: |
+      BLOCK IF supplier.id not in supplier_master.approved_ids
+      ALLOW OTHERWISE
+    reason_code: supplier_not_approved
+  - name: authority_ceiling
+    when: "action == 'po.release'"
+    decision: |
+      ESCALATE IF amount_usd > requester.authority_limit_usd
+      ALLOW OTHERWISE
+    reason_code: over_delegated_authority
+  - name: three_way_match_restraint
+    when: "action == 'invoice.post'"
+    decision: |
+      RESTRAIN IF three_way_match.reconciled == false
+      ALLOW OTHERWISE
+    reason_code: three_way_match_failed

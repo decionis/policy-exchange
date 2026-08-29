@@ -1,0 +1,42 @@
+# Gate every pull request on the pack shape.
+#
+# `pull_request`, deliberately NOT `pull_request_target`. This repository
+# takes pull requests from strangers, and pull_request_target runs the BASE
+# workflow with a writable token and access to secrets while checking out the
+# contributor's code — the standard way public repositories get their secrets
+# taken. pull_request runs with a read-only token and no secrets, which is all
+# this job needs.
+#
+# The job also installs nothing and touches no network: it runs one Node
+# script over the files in the tree. There is nothing here worth stealing and
+# nothing contributor-supplied that executes.
+name: Validate packs
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-packs-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate packs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate every pack
+        run: node scripts/validate-packs.mjs

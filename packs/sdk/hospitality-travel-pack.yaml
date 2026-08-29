@@ -1,0 +1,46 @@
+# Hospitality & Travel Pack
+#
+# Overbooking, rate-parity, and comp gates — stop oversold rooms, off-parity rates, and over-limit comps before a booking confirms.
+#
+# Audience:  Hotels, restaurants, OTAs, booking platforms
+# Platform:  sdk
+# Vertical:  hospitality
+# Standards: SOC 2 CC8.1, PCI DSS 4.0, Folio evidence trail
+# Install:   4 min — Follow the quickstart guide
+# Rendered:  https://decionis.com/policy-exchange/hospitality-travel-pack
+#
+# Rules in this pack:
+#   - Overbooking Guard: Blocks a booking that would oversell the room-type inventory.
+#   - Rate-Parity Guard: Blocks published-rate overrides that breach a parity agreement.
+#   - Comp & Refund Ceiling: Holds comps or refunds above the folio limit for a manager approval key.
+# Fork: the three gates from the hospitality starter pack.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: hospitality-travel-pack
+  surface: sdk
+  policy_pack_id: hospitality
+  standards: [SOC2-CC8.1, PCI-DSS-4.0]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: overbooking_guard
+    when: "action == 'booking.confirm'"
+    decision: |
+      BLOCK IF rooms_requested > rooms_available
+      ALLOW OTHERWISE
+    reason_code: room_type_oversold
+  - name: rate_parity_guard
+    when: "action == 'rate.publish'"
+    decision: |
+      BLOCK IF published_rate < parity_agreement.floor_rate
+      ESCALATE IF channel not in parity_agreement.channels
+      ALLOW OTHERWISE
+    reason_code: rate_breaches_parity
+  - name: comp_and_refund_ceiling
+    when: "action in ['folio.comp', 'folio.refund']"
+    decision: |
+      ESCALATE IF amount_usd > folio.comp_limit_usd
+      ALLOW OTHERWISE
+    reason_code: comp_over_folio_limit

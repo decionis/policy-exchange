@@ -1,0 +1,46 @@
+# AI Agency Pack
+#
+# Token budgets, approved tool use, and brand-safe output — prove every client-facing agent action stayed inside the agreed rules.
+#
+# Audience:  Agencies and teams shipping client agents
+# Platform:  langchain
+# Vertical:  ai_agency
+# Standards: SOC 2 CC7.2, ISO 27001 A.8.9, Client assurance
+# Install:   3 min — View the Python source adapter
+# Rendered:  https://decionis.com/policy-exchange/ai-agency-pack
+#
+# Rules in this pack:
+#   - Ethics and Tone Filter: Checks agent output against client brand and safety constraints.
+#   - Token Budgeting: Restrains agent runs that exceed the allocated project token wallet.
+#   - Tool-Use Whitelist: Blocks tool calls outside the approved client software list.
+# Fork: the three gates from the ai_agency starter pack, with your budgets.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: ai-agency-pack
+  surface: langchain
+  policy_pack_id: ai_agency
+  standards: [SOC2-CC7.2, ISO27001-A.8.9]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: ethics_and_tone_filter
+    when: "action == 'agent.publish_output'"
+    decision: |
+      BLOCK IF output.violates_brand_constraints == true
+      ESCALATE IF output.tone_confidence < 0.8
+      ALLOW OTHERWISE
+    reason_code: output_outside_brand_constraints
+  - name: token_budgeting
+    when: "action == 'agent.run'"
+    decision: |
+      RESTRAIN IF token_count > 50000
+      ALLOW OTHERWISE
+    reason_code: project_token_wallet_exceeded
+  - name: tool_use_whitelist
+    when: "action == 'agent.tool_call'"
+    decision: |
+      BLOCK IF tool_approved == false
+      ALLOW OTHERWISE
+    reason_code: tool_not_on_approved_list

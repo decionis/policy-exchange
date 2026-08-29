@@ -1,0 +1,46 @@
+# ServiceNow Just-In-Time Access
+#
+# Temporary admin rights get a timed dossier and a revocation trail — so the grant expires whether or not anyone remembers.
+#
+# Audience:  IT and security teams granting temporary elevated access
+# Platform:  servicenow
+# Vertical:  it_ops
+# Standards: SOC 2 CC6.2, ISO 27001 A.5.18, Access review evidence
+# Install:   6 min — See the ServiceNow install guide
+# Rendered:  https://decionis.com/policy-exchange/servicenow-just-in-time-access
+#
+# Rules in this pack:
+#   - Window ceiling: Blocks a temporary-admin grant requested for longer than the maximum window.
+#   - Revocation requirement: Escalates a grant with no scheduled revocation time attached.
+#   - Standing-access restraint: Restrains a repeat grant to a requester who already holds an unexpired elevated role.
+# Fork: set max_window_hours to the shortest window your teams can work in.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: servicenow-just-in-time-access
+  surface: servicenow
+  workflow_key: temporary_admin_access
+  standards: [SOC2-CC6.2, ISO27001-A.5.18]
+defaults:
+  mode: shadow
+  emit_dossier: true
+max_window_hours: 8
+rules:
+  - name: window_ceiling
+    when: "request == 'access.temporary_admin'"
+    decision: |
+      BLOCK IF requested_duration_hours > max_window_hours
+      ALLOW OTHERWISE
+    reason_code: jit_window_too_long
+  - name: revocation_requirement
+    when: "request == 'access.temporary_admin'"
+    decision: |
+      ESCALATE IF revocation_scheduled_at == null
+      ALLOW OTHERWISE
+    reason_code: no_scheduled_revocation
+  - name: standing_access_restraint
+    when: "request == 'access.temporary_admin'"
+    decision: |
+      RESTRAIN IF requester.has_unexpired_elevated_role == true
+      ALLOW OTHERWISE
+    reason_code: elevated_role_already_held

@@ -1,0 +1,45 @@
+# HR & People Ops Pack
+#
+# Fairness, approval-chain, and offboarding gates — prove every hire, promotion, and termination cleared its checks.
+#
+# Audience:  People ops, talent, HR compliance
+# Platform:  workday
+# Vertical:  hr
+# Standards: SOC 2 CC1.4, ISO 27001 A.6.1, Hiring decision evidence
+# Install:   5 min — Workday design-partner program
+# Rendered:  https://decionis.com/policy-exchange/hr-people-ops-pack
+#
+# Rules in this pack:
+#   - Candidate Fairness Check: Restrains a hire or promotion that lacks a documented, bias-checked rationale.
+#   - Approval Chain Gate: Confirms the required approver chain signed off before the decision executes.
+#   - Offboarding Guard: Confirms access and payroll are revoked when a termination event is received.
+# Fork: the three gates from the hr starter pack, with your approver chain.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: hr-people-ops-pack
+  surface: workday
+  policy_pack_id: hr
+  standards: [SOC2-CC1.4, ISO27001-A.6.1]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: candidate_fairness_check
+    when: "action in ['hire.execute', 'promotion.execute']"
+    decision: |
+      RESTRAIN IF fairness_rationale_attached == false
+      ALLOW OTHERWISE
+    reason_code: fairness_rationale_missing
+  - name: approval_chain_gate
+    when: "action in ['hire.execute', 'promotion.execute', 'compensation.change']"
+    decision: |
+      ESCALATE IF approval_chain_complete == false
+      ALLOW OTHERWISE
+    reason_code: approval_chain_incomplete
+  - name: offboarding_guard
+    when: "event == 'worker.terminated'"
+    decision: |
+      RESTRAIN IF access_revoked == false OR payroll_stopped == false
+      ALLOW OTHERWISE
+    reason_code: offboarding_incomplete

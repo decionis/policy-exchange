@@ -1,0 +1,46 @@
+# Webhook Execution Receipt
+#
+# Gate an inbound webhook before it mutates state — replay protection, signature checks, and a dossier per delivery.
+#
+# Audience:  Backend teams whose webhooks trigger money movement or record writes
+# Platform:  sdk
+# Vertical:  cross_vertical
+# Standards: SOC 2 CC6.1, ISO 27001 A.8.20, Integration evidence
+# Install:   5 min — Read the webhook guide
+# Rendered:  https://decionis.com/policy-exchange/sdk-webhook-execution-receipt
+#
+# Rules in this pack:
+#   - Signature requirement: Blocks a delivery whose signature does not verify against the shared secret.
+#   - Replay window: Blocks a delivery whose timestamp is outside the accepted replay window.
+#   - Idempotency restraint: Restrains a delivery whose idempotency key was already processed.
+# Fork: set the replay window and the mutation actions you care about.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: sdk-webhook-execution-receipt
+  surface: sdk
+  standards: [SOC2-CC6.1, ISO27001-A.8.20]
+defaults:
+  mode: shadow
+  emit_dossier: true
+  fail_closed: true
+replay_window_seconds: 300
+rules:
+  - name: signature_requirement
+    when: "always"
+    decision: |
+      BLOCK IF delivery.signature_valid == false
+      ALLOW OTHERWISE
+    reason_code: webhook_signature_invalid
+  - name: replay_window
+    when: "always"
+    decision: |
+      BLOCK IF abs(now - delivery.timestamp) > replay_window_seconds
+      ALLOW OTHERWISE
+    reason_code: webhook_outside_replay_window
+  - name: idempotency_restraint
+    when: "delivery.mutates_state == true"
+    decision: |
+      RESTRAIN IF delivery.idempotency_key in processed_keys
+      ALLOW OTHERWISE
+    reason_code: duplicate_delivery

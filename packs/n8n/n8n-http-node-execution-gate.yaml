@@ -1,0 +1,46 @@
+# n8n HTTP-Node Execution Gate
+#
+# Call the evaluate endpoint from an HTTP Request node and branch the workflow on the verdict before the write step runs.
+#
+# Audience:  Teams self-hosting n8n workflows that write to production systems
+# Platform:  n8n
+# Vertical:  cross_vertical
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.32, Workflow evidence
+# Install:   7 min — Read the API reference
+# Rendered:  https://decionis.com/policy-exchange/n8n-http-node-execution-gate
+#
+# Rules in this pack:
+#   - Write-step gate: Escalates a write to a production system when the payload exceeds the threshold.
+#   - Fail-closed on gate outage: Restrains the workflow when the gate cannot be reached, instead of writing blind.
+#   - Actor authority check: Blocks a workflow run triggered by an actor with no authority for the action.
+# Fork: POST the canonical payload from an HTTP Request node, then use an IF
+# node on the returned verdict to branch before the protected write.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: n8n-http-node-execution-gate
+  surface: n8n
+  workflow_key: workflow_write_gate
+  standards: [SOC2-CC8.1, ISO27001-A.8.32]
+defaults:
+  mode: shadow
+  emit_dossier: true
+  fail_closed: true
+rules:
+  - name: write_step_gate
+    when: "step.writes_production == true"
+    decision: |
+      ALLOW IF amount_usd < 1000
+      ESCALATE OTHERWISE
+    reason_code: production_write_over_threshold
+  - name: gate_outage_restraint
+    when: "gate.reachable == false"
+    decision: |
+      RESTRAIN IF always
+    reason_code: gate_unreachable_fail_closed
+  - name: actor_authority_check
+    when: "always"
+    decision: |
+      BLOCK IF actor.authority_scope not contains action
+      ALLOW OTHERWISE
+    reason_code: actor_lacks_authority

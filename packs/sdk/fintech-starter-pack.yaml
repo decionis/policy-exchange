@@ -1,0 +1,48 @@
+# Fintech Starter Pack
+#
+# Velocity, sanctions, and treasury movement controls — automated proof of every KYC, AML, payout, and limit decision.
+#
+# Audience:  Neobanks, payfacs, crypto ops
+# Platform:  sdk
+# Vertical:  fintech
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.34, AML evidence trail
+# Install:   5 min — Read the protocol guide
+# Rendered:  https://decionis.com/policy-exchange/fintech-starter-pack
+#
+# Rules in this pack:
+#   - Tiered Velocity Gate: Flags or blocks high-value movement based on amount and risk posture.
+#   - Cross-Border Sanction Check: Requires fresh sanctions evidence before an international payout executes.
+#   - Treasury Lock: Requires dual approval before corporate funds move above the threshold.
+# Fork: the three gates from the fintech starter pack, with your thresholds.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: fintech-starter-pack
+  surface: sdk
+  policy_pack_id: fintech
+  standards: [SOC2-CC8.1, ISO27001-A.8.34]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: tiered_velocity_gate
+    when: "action == 'payout.execute'"
+    decision: |
+      ALLOW IF amount_usd < 10000 AND risk_posture == 'standard'
+      ESCALATE IF amount_usd < 250000
+      BLOCK OTHERWISE
+    reason_code: velocity_tier_exceeded
+  - name: cross_border_sanction_check
+    when: "action == 'payout.execute' AND cross_border == true"
+    decision: |
+      BLOCK IF sanctions_evidence == null
+      ESCALATE IF sanctions_evidence.age_hours > 24
+      ALLOW OTHERWISE
+    reason_code: sanctions_evidence_missing
+  - name: treasury_lock
+    when: "action == 'treasury.move'"
+    decision: |
+      BLOCK IF amount_usd >= 250000 AND approvals.count < 2
+      ESCALATE IF amount_usd >= 10000
+      ALLOW OTHERWISE
+    reason_code: treasury_dual_approval_required

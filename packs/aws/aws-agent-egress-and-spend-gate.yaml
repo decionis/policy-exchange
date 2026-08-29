@@ -1,0 +1,45 @@
+# AWS Agent Egress & Spend Gate
+#
+# Opens sandbox egress only for the exact target the grant covers, and stops a run that would blow the account budget.
+#
+# Audience:  Platform teams running agent workloads inside their own AWS account
+# Platform:  aws
+# Vertical:  saas_ops
+# Standards: SOC 2 CC6.1, ISO 27001 A.8.20, Cloud spend evidence
+# Install:   8 min — See the AWS install guide
+# Rendered:  https://decionis.com/policy-exchange/aws-agent-egress-and-spend-gate
+#
+# Rules in this pack:
+#   - Bound-grant egress: Blocks outbound traffic to any target the issued execution grant does not name explicitly.
+#   - Single-use grant: Blocks reuse of an execution grant that has already been consumed.
+#   - Daily burn circuit breaker: Restrains automated changes that would materially increase daily burn.
+# Fork: set your own burn threshold; grants stay action- and target-bound.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: aws-agent-egress-and-spend-gate
+  surface: aws
+  standards: [SOC2-CC6.1, ISO27001-A.8.20]
+defaults:
+  mode: shadow
+  emit_dossier: true
+  fail_closed: true
+rules:
+  - name: bound_grant_egress
+    when: "action == 'sandbox.open_egress'"
+    decision: |
+      BLOCK IF target not in grant.bound_targets
+      ALLOW OTHERWISE
+    reason_code: egress_target_not_in_grant
+  - name: single_use_grant
+    when: "action == 'grant.consume'"
+    decision: |
+      BLOCK IF grant.consumed == true
+      ALLOW OTHERWISE
+    reason_code: grant_already_consumed
+  - name: daily_burn_circuit_breaker
+    when: "action == 'infrastructure.change'"
+    decision: |
+      RESTRAIN IF daily_burn_delta_percent > 15
+      ALLOW OTHERWISE
+    reason_code: burn_delta_over_threshold

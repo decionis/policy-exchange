@@ -1,0 +1,48 @@
+# Cursor Dependency-Install Whitelist
+#
+# Blocks an agent installing a package from an unapproved registry or adding a dependency with no lockfile entry.
+#
+# Audience:  Teams worried about agent-introduced supply-chain risk
+# Platform:  cursor
+# Vertical:  ai_agency
+# Standards: SOC 2 CC7.1, ISO 27001 A.8.9, Supply-chain evidence
+# Install:   4 min — Wire the agent hook
+# Rendered:  https://decionis.com/policy-exchange/cursor-dependency-install-whitelist
+#
+# Rules in this pack:
+#   - Registry whitelist: Blocks installs pointed at a registry outside the approved list.
+#   - Global install block: Blocks machine-wide (`-g`) installs — the agent stays inside the project.
+#   - Unpinned dependency escalation: Escalates a new dependency added without a resolved lockfile entry.
+# Fork: replace approved_registries with your own mirror / proxy.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: cursor-dependency-install-whitelist
+  surface: cursor
+  standards: [SOC2-CC7.1, ISO27001-A.8.9]
+defaults:
+  mode: shadow
+  emit_dossier: true
+  fail_closed: true
+approved_registries:
+  - "https://registry.npmjs.org"
+  - "https://pypi.org/simple"
+rules:
+  - name: registry_whitelist
+    when: "tool == 'Bash' AND command matches '(npm|pnpm|yarn|pip) (install|add)'"
+    decision: |
+      BLOCK IF resolved_registry not in approved_registries
+      ALLOW OTHERWISE
+    reason_code: registry_not_approved
+  - name: global_install_block
+    when: "tool == 'Bash' AND command matches '(npm|pnpm|yarn) (install|add)'"
+    decision: |
+      BLOCK IF command matches '(\s-g\b|--global)'
+      ALLOW OTHERWISE
+    reason_code: global_install_blocked
+  - name: unpinned_dependency
+    when: "change.kind == 'dependency_add'"
+    decision: |
+      ESCALATE IF lockfile.entry_present == false
+      ALLOW OTHERWISE
+    reason_code: dependency_not_pinned

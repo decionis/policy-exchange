@@ -1,0 +1,47 @@
+# TikTok Shop Fulfillment Circuit Breaker
+#
+# Stops a viral-spike order releasing on stock you do not have, or on a creator-commission stack that breaks margin.
+#
+# Audience:  TikTok Shop sellers running creator campaigns and flash promos
+# Platform:  tiktok_shop
+# Vertical:  commerce
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.34, Fulfillment evidence trail
+# Install:   6 min — See the TikTok Shop install guide
+# Rendered:  https://decionis.com/policy-exchange/tiktok-shop-fulfillment-breaker
+#
+# Rules in this pack:
+#   - Spike oversell gate: Blocks releasing fulfillment for units the system of record does not hold.
+#   - Creator-commission margin check: Blocks an order whose margin, after platform fee and creator commission, falls under the floor.
+#   - Flash-promo velocity restraint: Restrains releases once a flash promo exceeds the units-per-minute ceiling, pending a human check.
+# Fork: set commission and velocity ceilings for your campaigns.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: tiktok-shop-fulfillment-breaker
+  surface: tiktok_shop
+  workflow_key: fulfillment_release
+  standards: [SOC2-CC8.1, ISO27001-A.8.34]
+defaults:
+  mode: shadow
+  emit_dossier: true
+margin_floor_pct: 10
+velocity_ceiling_units_per_minute: 40
+rules:
+  - name: spike_oversell_gate
+    when: "action == 'fulfillment.release'"
+    decision: |
+      BLOCK IF units_ordered > units_available
+      ALLOW OTHERWISE
+    reason_code: oversold_inventory
+  - name: creator_commission_margin_check
+    when: "action == 'fulfillment.release'"
+    decision: |
+      BLOCK IF (order.total - order.cost_basis - fees.platform - fees.creator_commission) / order.total < margin_floor_pct / 100
+      ALLOW OTHERWISE
+    reason_code: commission_adjusted_margin_below_floor
+  - name: flash_promo_velocity_restraint
+    when: "action == 'fulfillment.release' AND promo.is_flash == true"
+    decision: |
+      RESTRAIN IF promo.units_per_minute > velocity_ceiling_units_per_minute
+      ALLOW OTHERWISE
+    reason_code: flash_promo_velocity_exceeded

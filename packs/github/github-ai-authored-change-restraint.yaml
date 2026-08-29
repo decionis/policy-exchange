@@ -1,0 +1,50 @@
+# GitHub AI-Authored Change Restraint
+#
+# An agent can author the change; a human still has to sign the deploy. Restrains AI-authored diffs that touch deploy, infra, or migration paths.
+#
+# Audience:  Teams whose coding agents open pull requests against production repos
+# Platform:  github
+# Vertical:  ai_agency
+# Standards: SOC 2 CC8.1, ISO 27001 A.8.9, Agent action evidence
+# Install:   5 min — See the GitHub install guide
+# Rendered:  https://decionis.com/policy-exchange/github-ai-authored-change-restraint
+#
+# Rules in this pack:
+#   - Agent-authored path restraint: Restrains an AI-authored change that touches deploy, infra, or migration paths until a human reviews it.
+#   - Docs and tests allowance: Allows AI-authored changes limited to documentation or test files.
+#   - Secrets-touching escalation: Escalates any change that modifies secrets or rotation, requiring two approvers.
+# Fork: adjust sensitive_paths for your repository layout.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: github-ai-authored-change-restraint
+  surface: github
+  workflow_key: github_agent_change_review
+  standards: [SOC2-CC8.1, ISO27001-A.8.9]
+defaults:
+  mode: shadow
+  emit_dossier: true
+  comment_pr: true
+sensitive_paths:
+  - ".github/workflows/**"
+  - "infra/**"
+  - "**/migrations/**"
+rules:
+  - name: agent_authored_path_restraint
+    when: "context.agent_generated == true"
+    decision: |
+      RESTRAIN IF changed_paths matches any sensitive_paths
+      ALLOW OTHERWISE
+    reason_code: agent_change_needs_human_review
+  - name: docs_and_tests_allowance
+    when: "context.agent_generated == true"
+    decision: |
+      ALLOW IF changed_paths matches only ['docs/**', '**/*.test.*', '**/*.md']
+      ESCALATE OTHERWISE
+    reason_code: agent_change_outside_safe_paths
+  - name: secrets_touching_escalation
+    when: "always"
+    decision: |
+      ESCALATE IF changed_paths matches ['**/secrets/**', '**/*.pem', '.github/workflows/*secret*']
+      ALLOW OTHERWISE
+    reason_code: secret_change_requires_two_approvers

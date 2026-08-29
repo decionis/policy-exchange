@@ -1,0 +1,47 @@
+# Zapier Unknown-Domain Invoice Block
+#
+# Blocks an invoice or payment instruction from a domain that is not on the verified-vendor list before the Zap pays it.
+#
+# Audience:  AP and finance ops automating invoice intake in Zapier
+# Platform:  zapier
+# Vertical:  fintech
+# Standards: SOC 2 CC6.1, ISO 27001 A.5.19, Vendor verification evidence
+# Install:   4 min — Add the Zapier action
+# Rendered:  https://decionis.com/policy-exchange/zapier-unknown-domain-invoice-block
+#
+# Rules in this pack:
+#   - Verified-domain requirement: Blocks an invoice whose sender domain is not on the verified-vendor list.
+#   - Bank-detail change escalation: Escalates any invoice that changes a vendor's banking details, even from a known domain.
+#   - Missing-DPA block: Blocks onboarding a vendor with no signed DPA on file.
+# Fork: thresholds and hard rules mirror the "Vendor changes" governance
+# template. Point verified_domains at your own vendor master.
+apiVersion: decionis.dev/v1
+kind: PolicyPack
+metadata:
+  name: zapier-unknown-domain-invoice-block
+  surface: zapier
+  workflow_key: vendor_invoice_intake
+  standards: [SOC2-CC6.1, ISO27001-A.5.19]
+defaults:
+  mode: shadow
+  emit_dossier: true
+rules:
+  - name: verified_domain_requirement
+    when: "action == 'invoice.receive'"
+    decision: |
+      BLOCK IF sender.domain not in vendor_master.verified_domains
+      ALLOW OTHERWISE
+    reason_code: sender_domain_not_verified
+  - name: bank_detail_change_escalation
+    when: "action in ['invoice.receive', 'vendor.update']"
+    decision: |
+      ESCALATE IF change.touches_bank_details == true
+      ALLOW OTHERWISE
+    reason_code: bank_detail_change_requires_callback
+  - name: missing_dpa_block
+    when: "action == 'vendor.onboard'"
+    decision: |
+      BLOCK IF dpa_signed == false
+      ESCALATE IF new_vendor == true
+      ALLOW OTHERWISE
+    reason_code: no_signed_dpa
