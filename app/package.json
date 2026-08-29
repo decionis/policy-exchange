@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "The Decionis sandbox demo — real policy decisions against a local dataset, no account required.",
+  "description": "The Decionis sandbox demo \u2014 real policy decisions against a local dataset, no account required.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -20,7 +20,10 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "typescript": "^5.9.3",
-    "vite": "^6.0.7",
-    "vitest": "^2.1.9"
+    "vite": "^6.4.3",
+    "vitest": "^3.2.6"
+  },
+  "overrides": {
+    "esbuild": ">=0.25.0"
   }
 }
