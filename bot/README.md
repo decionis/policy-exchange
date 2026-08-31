@@ -26,11 +26,13 @@ run needs a token, and that token never reaches a browser.
 
 Anything else is refused before evaluation.
 
-`CREATE_PR` opens one draft pull request from the isolated session branch
-after an APPROVE verdict. `DEPLOY_PRODUCTION` is deliberately a proof action:
-the fixed public-sandbox policy refuses it, and this workflow has no deployment
-permission or production credential even if a hostile caller supplies a
-different policy.
+`CREATE_PR` records APPROVE on the isolated branch; the sandbox control plane
+then verifies that committed event before opening the draft PR with its
+repo-scoped credential. GitHub enterprise policy prevents Actions from opening
+PRs directly, so the workflow itself keeps only `contents: write`.
+`DEPLOY_PRODUCTION` is deliberately a proof action: the fixed public-sandbox
+policy refuses it, and this workflow has no deployment permission or production
+credential even if a hostile caller supplies a different policy.
 
 ## Writing a policy the bot will read
 
