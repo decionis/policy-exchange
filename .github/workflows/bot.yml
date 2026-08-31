@@ -31,7 +31,6 @@ on:
 # nothing else.
 permissions:
   contents: write
-  pull-requests: write
 
 # One run at a time per session. Two dispatches racing on the same branch
 # would interleave commits and produce an event log that lies about order.
@@ -117,24 +116,4 @@ jobs:
             git push origin "HEAD:$BRANCH"
           else
             echo "Nothing changed — not pushing an empty commit."
-          fi
-
-      - name: Open a draft pull request, only if approved
-        if: steps.gate.outputs.verdict == 'APPROVE' && github.event.client_payload.action == 'CREATE_PR'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          BRANCH: ${{ steps.dispatch.outputs.branch }}
-          SESSION_ID: ${{ github.event.client_payload.sessionId }}
-        run: |
-          set -euo pipefail
-          EXISTING="$(gh pr list --head "$BRANCH" --base main --state open --json url --jq '.[0].url // empty')"
-          if [ -n "$EXISTING" ]; then
-            echo "Draft pull request already exists: $EXISTING"
-          else
-            gh pr create \
-              --draft \
-              --base main \
-              --head "$BRANCH" \
-              --title "sandbox: Decionis Bot session $SESSION_ID" \
-              --body "Created by the Decionis live sandbox after every requested tool call was gated. This draft contains only the isolated session branch state."
           fi
