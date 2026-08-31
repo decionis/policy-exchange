@@ -1,5 +1,14 @@
 [
   {
+    "action": "CREATE_PR",
+    "session": "453dc005-a7d",
+    "verdict": "APPROVE",
+    "matched_rule": null,
+    "reason": null,
+    "run_url": "https://github.com/decionis/policy-exchange/actions/runs/33348035385",
+    "at": "2026-08-31T01:35:33.385Z"
+  },
+  {
     "action": "DROP_DB",
     "session": "453dc005-a7d",
     "verdict": "REJECT",
