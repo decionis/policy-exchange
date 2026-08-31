@@ -1,5 +1,14 @@
 [
   {
+    "action": "DROP_DB",
+    "session": "3a3ac929-0de",
+    "verdict": "REJECT",
+    "matched_rule": null,
+    "reason": "Decionis block: Policy rule \"block_database_drop\" returned block.",
+    "run_url": "https://github.com/decionis/policy-exchange/actions/runs/33351955743",
+    "at": "2026-08-31T02:51:19.385Z"
+  },
+  {
     "action": "BRANCH",
     "session": "3a3ac929-0de",
     "verdict": "APPROVE",
