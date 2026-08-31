@@ -106,6 +106,22 @@ export function applyAction({ action, context, database }) {
       // There is deliberately no path from here to main.
       return { database, summary: "Merged onto the session branch." };
 
+    case "CREATE_PR":
+      // The workflow opens the draft PR after this run's event has been
+      // committed and pushed. Keeping that GitHub side effect in bot.yml
+      // means the executor remains deterministic and unit-testable.
+      return { database, summary: "Draft pull request requested for the session branch." };
+
+    case "DEPLOY_PRODUCTION":
+      // The fixed public-sandbox policy blocks this action. If a hostile
+      // caller supplies a permissive policy anyway, the furthest it can get
+      // is this isolated record on sandbox/<session>; no deployment
+      // credential or production environment exists in this workflow.
+      return {
+        database,
+        summary: "Production deployment recorded in the sandbox; production was not contacted.",
+      };
+
     default:
       throw new Error(`Unhandled action ${action}`);
   }
