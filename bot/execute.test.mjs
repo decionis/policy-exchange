@@ -41,4 +41,14 @@ describe("bot executor", () => {
     applyAction({ action: "SHOW_DB", context: {}, database });
     expect(JSON.stringify(database)).toBe(before);
   });
+
+  it("keeps PR and deployment proof actions inside the isolated session", () => {
+    const database = seedDatabase();
+    const before = JSON.stringify(database);
+    const pr = applyAction({ action: "CREATE_PR", context: {}, database });
+    const deploy = applyAction({ action: "DEPLOY_PRODUCTION", context: {}, database });
+    expect(pr.summary).toContain("Draft pull request");
+    expect(deploy.summary).toContain("production was not contacted");
+    expect(JSON.stringify(database)).toBe(before);
+  });
 });

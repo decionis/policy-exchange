@@ -24,7 +24,15 @@ export function branchForSession(sessionId) {
 }
 
 /** Actions the bot will consider. Anything else is refused before evaluation. */
-export const ACTIONS = new Set(["BRANCH", "MERGE", "UPDATE_TABLE", "DROP_DB", "SHOW_DB"]);
+export const ACTIONS = new Set([
+  "BRANCH",
+  "MERGE",
+  "UPDATE_TABLE",
+  "DROP_DB",
+  "SHOW_DB",
+  "CREATE_PR",
+  "DEPLOY_PRODUCTION",
+]);
 
 /**
  * How many actions one session may run.

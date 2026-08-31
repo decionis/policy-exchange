@@ -22,9 +22,15 @@ run needs a token, and that token never reaches a browser.
 
 ## Actions
 
-`BRANCH` · `MERGE` · `UPDATE_TABLE` · `DROP_DB` · `SHOW_DB`
+`BRANCH` · `MERGE` · `UPDATE_TABLE` · `DROP_DB` · `SHOW_DB` · `CREATE_PR` · `DEPLOY_PRODUCTION`
 
 Anything else is refused before evaluation.
+
+`CREATE_PR` opens one draft pull request from the isolated session branch
+after an APPROVE verdict. `DEPLOY_PRODUCTION` is deliberately a proof action:
+the fixed public-sandbox policy refuses it, and this workflow has no deployment
+permission or production credential even if a hostile caller supplies a
+different policy.
 
 ## Writing a policy the bot will read
 

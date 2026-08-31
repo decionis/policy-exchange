@@ -37,6 +37,12 @@ describe("session identity", () => {
     expect(() => parseDispatch({ action: "", sessionId: "a1b2c3d4e5" })).toThrow();
   });
 
+  it("accepts the pull-request and production-deploy proof actions", () => {
+    for (const action of ["CREATE_PR", "DEPLOY_PRODUCTION"]) {
+      expect(parseDispatch({ action, sessionId: "a1b2c3d4e5" }).action).toBe(action);
+    }
+  });
+
   it("keeps the visitor's policy as data", () => {
     const parsed = parseDispatch({
       action: "MERGE",
