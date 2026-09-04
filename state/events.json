@@ -1,0 +1,11 @@
+[
+  {
+    "action": "BRANCH",
+    "session": "e9bdf6e9-d7e",
+    "verdict": "REJECT",
+    "matched_rule": null,
+    "reason": "gate unreachable: spawnSync npx ETIMEDOUT",
+    "run_url": "https://github.com/decionis/policy-exchange/actions/runs/33850568907",
+    "at": "2026-09-04T07:51:59.987Z"
+  }
+]
