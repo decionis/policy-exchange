@@ -1,0 +1,47 @@
+[
+  {
+    "action": "CREATE_PR",
+    "session": "453dc005-a7d",
+    "verdict": "APPROVE",
+    "matched_rule": null,
+    "reason": null,
+    "run_url": "https://github.com/decionis/policy-exchange/actions/runs/33348175195",
+    "at": "2026-08-31T01:38:13.089Z"
+  },
+  {
+    "action": "CREATE_PR",
+    "session": "453dc005-a7d",
+    "verdict": "APPROVE",
+    "matched_rule": null,
+    "reason": null,
+    "run_url": "https://github.com/decionis/policy-exchange/actions/runs/33348035385",
+    "at": "2026-08-31T01:36:57.281Z"
+  },
+  {
+    "action": "CREATE_PR",
+    "session": "453dc005-a7d",
+    "verdict": "APPROVE",
+    "matched_rule": null,
+    "reason": null,
+    "run_url": "https://github.com/decionis/policy-exchange/actions/runs/33348035385",
+    "at": "2026-08-31T01:35:33.385Z"
+  },
+  {
+    "action": "DROP_DB",
+    "session": "453dc005-a7d",
+    "verdict": "REJECT",
+    "matched_rule": null,
+    "reason": "Decionis block: Policy rule \"block_database_drop\" returned block.",
+    "run_url": "https://github.com/decionis/policy-exchange/actions/runs/33348006747",
+    "at": "2026-08-31T01:35:04.671Z"
+  },
+  {
+    "action": "BRANCH",
+    "session": "453dc005-a7d",
+    "verdict": "APPROVE",
+    "matched_rule": null,
+    "reason": null,
+    "run_url": "https://github.com/decionis/policy-exchange/actions/runs/33347993710",
+    "at": "2026-08-31T01:34:49.473Z"
+  }
+]
