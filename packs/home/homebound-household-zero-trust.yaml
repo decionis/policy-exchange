@@ -1,8 +1,9 @@
 # HomeBound Household Zero-Trust Control
 #
-# Reusable, device-agnostic starting point for agent-proposed actions in a home.
-# Decionis Policy Exchange submission; tenant-specific copies must be reviewed
-# and associated with the household's Decionis organization before enforcement.
+# Public-demo-only, device-agnostic example for agent-proposed home actions.
+# This Policy Exchange pack is not a production policy source and is not copied
+# into tenant workspaces. Real, editable household policies live as versioned
+# org-scoped artifacts in Decionis Protocol.
 # The delivery window is the requested assumed local time window, 14:00-15:00.
 # Map the EIE proposal fields to trusted household/delivery signals in each
 # workspace. Agent or MCP arguments are not proof of identity, delivery, or time.
