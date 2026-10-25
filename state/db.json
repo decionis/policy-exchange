@@ -1,0 +1,55 @@
+{
+  "ROLES": [
+    {
+      "title": "Support Engineer",
+      "description": "Tier 2 customer escalations",
+      "salary": 78000
+    },
+    {
+      "title": "Senior Engineer",
+      "description": "Owns a production service",
+      "salary": 132000
+    },
+    {
+      "title": "Engineering Manager",
+      "description": "Runs a team of six",
+      "salary": 168000
+    }
+  ],
+  "EMP": [
+    {
+      "RID": "E-1041",
+      "name": "Ada Fernsby",
+      "gender": "female",
+      "department": "Engineering"
+    },
+    {
+      "RID": "E-1042",
+      "name": "Bo Whitfield",
+      "gender": "male",
+      "department": "Engineering"
+    },
+    {
+      "RID": "E-1043",
+      "name": "Thura Khin",
+      "gender": "non-binary",
+      "department": "Support"
+    }
+  ],
+  "PAYMENTS": [
+    {
+      "EID": "E-1041",
+      "gross": 11000,
+      "deductions": 3140,
+      "amount": 7860,
+      "date": "2026-08-25"
+    },
+    {
+      "EID": "E-1043",
+      "gross": 96000,
+      "deductions": 21400,
+      "amount": 74600,
+      "date": "2026-08-25"
+    }
+  ]
+}
