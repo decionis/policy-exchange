@@ -1,0 +1,11 @@
+[
+  {
+    "action": "BRANCH",
+    "session": "fc25fabb-4db",
+    "verdict": "APPROVE",
+    "matched_rule": null,
+    "reason": null,
+    "run_url": "https://github.com/decionis/policy-exchange/actions/runs/41871015401",
+    "at": "2026-11-04T16:47:42.368Z"
+  }
+]
