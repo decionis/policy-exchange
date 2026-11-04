@@ -1,0 +1,11 @@
+[
+  {
+    "action": "BRANCH",
+    "session": "42f90f5d-5f8",
+    "verdict": "APPROVE",
+    "matched_rule": null,
+    "reason": null,
+    "run_url": "https://github.com/decionis/policy-exchange/actions/runs/41815972918",
+    "at": "2026-11-04T10:43:19.240Z"
+  }
+]
